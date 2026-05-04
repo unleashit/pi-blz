@@ -6,22 +6,79 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import {
   Container,
-  SelectList,
   type SettingItem,
   SettingsList,
   Text,
 } from "@mariozechner/pi-tui";
-
-// console.log(
-//   await search(
-//     "Hello World",
-//     config.limit,
-//     config.timeoutMs,
-//     config.safesearch,
-//   ),
-// );
+import { Type } from "typebox";
 
 export default function (pi: ExtensionAPI) {
+  pi.registerTool({
+    name: "web_search",
+    label: "Web Search",
+    description: "Search the web using SearxNG",
+    parameters: Type.Object({
+      query: Type.String({ description: "Search query" }),
+    }),
+
+    async execute(_id, params, signal) {
+      const config = loadConfig();
+
+      if (signal?.aborted) {
+        return {
+          content: [{ type: "text", text: "Search aborted" }],
+          details: { query: params.query, resultCount: 0 },
+        };
+      }
+
+      try {
+        const { results } = await search(
+          params.query,
+          config.limit,
+          config.timeoutMs,
+          config.safesearch,
+        );
+
+        const text =
+          results.length === 0
+            ? `No results found for "${params.query}"`
+            : results
+                .map(
+                  (r, i) =>
+                    `## **${i + 1}.** ${r.title}\n**URL:** ${r.url}\n**Engine:** ${r.engine}\n${r.content}`,
+                )
+                .join("\n\n---\n\n");
+
+        return {
+          content: [{ type: "text", text }],
+          details: { query: params.query, resultCount: results.length },
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          ],
+          details: { query: params.query, resultCount: 0 },
+        };
+      }
+    },
+    renderCall(args, theme, context_) {
+      const query = args.query;
+      return new Text(
+        theme.fg("toolTitle", "search") +
+          " " +
+          theme.fg("accent", `"${query}"`),
+      );
+    },
+    renderResult(result, options, theme, context) {
+      const text = result.content.find((c) => c.type === "text")?.text ?? "";
+      return new Text(theme.fg("dim", text));
+    },
+  });
+
   pi.registerCommand("search-config", {
     description: "Configure search",
     handler: async (_args, ctx) => {

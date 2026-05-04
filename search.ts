@@ -1,11 +1,11 @@
-interface SearchResult {
+export interface SearchResult {
   title: string;
   url: string;
   content: string;
   engine: string;
 }
 
-interface SearchResponse {
+export interface SearchResponse {
   results: SearchResult[];
 }
 
@@ -14,7 +14,7 @@ export async function search(
   limit: number,
   timeoutMs: number,
   safesearch: 0 | 1 | 2,
-): Promise<string> {
+): Promise<SearchResponse> {
   const baseUrl = process.env.SEARXNG_URL || "http://localhost:8888";
 
   const url = new URL(`${baseUrl}/search`);
@@ -26,8 +26,9 @@ export async function search(
     Accept: "application/json",
   };
 
-  if (process.env.SEARXNG_API_KEY) {
-    headers.Authorization = `Bearer ${process.env.SEARXNG_API_KEY}`;
+  const apiKey = process.env.SEARXNG_API_KEY;
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
   }
 
   const controller = new AbortController();
@@ -46,13 +47,7 @@ export async function search(
     const response = (await res.json()) as SearchResponse;
     const results = response.results.slice(0, limit);
 
-    if (results.length === 0) {
-      return `No results found for "${query}"`;
-    }
-
-    return results
-      .map((r, i) => `## ${i + 1}. ${r.title}\n**URL:** ${r.url}\n**Engine:** ${r.engine}\n${r.content}`)
-      .join("\n\n---\n\n");
+    return { results };
   } finally {
     clearTimeout(timer);
   }
