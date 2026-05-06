@@ -89,7 +89,7 @@ export default function (pi: ExtensionAPI) {
       return new Text(
         theme.fg("toolTitle", "search") +
           " " +
-          theme.fg("accent", `"${query}"`),
+          theme.fg("accent", `${query || ""}`),
         0,
         0,
       );
