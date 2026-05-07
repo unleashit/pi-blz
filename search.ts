@@ -62,7 +62,7 @@ function normalizeSearchResponse(raw: unknown): SearchResponse {
   };
 }
 
-export async function search(
+export async function webSearch(
   query: string,
   options: SearchOptions,
 ): Promise<SearchResponse> {
@@ -125,7 +125,7 @@ export function formatSearchResults(response: SearchResponse): string {
   return resultsString;
 }
 
-export function renderToolResult(
+export function renderSearchResult(
   result: AgentToolResult<{
     query: string;
     resultCount: number;
