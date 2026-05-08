@@ -145,7 +145,7 @@ export async function webExtract(url: string, options: ExtractContentOptions) {
       .join("\n");
 
     denoiseBody(body);
-    absolutizeUrls(body, url);
+    absolutizeUrls(body, validatedUrl);
 
     const markdown = getMarkdownFromHTML(body.innerHTML ?? "");
 
