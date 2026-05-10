@@ -49,19 +49,43 @@ function validateConfig(raw: unknown): Config {
   return merged as Config;
 }
 
-export function loadConfig(): void {
+export function loadConfig(onError?: (error: unknown) => void): void {
   try {
-    if (existsSync(configPath)) {
-      const saved = JSON.parse(readFileSync(configPath, "utf-8"));
-      const validated = validateConfig(saved);
-      config = validated;
-    }
+    mkdirSync(dirname(configPath), { recursive: true });
 
     if (!existsSync(configPath)) {
-      mkdirSync(dirname(configPath), { recursive: true });
-      writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+      config = { ...defaultConfig };
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+      return;
     }
+
+    const saved = JSON.parse(readFileSync(configPath, "utf-8"));
+    const validated = validateConfig(saved);
+    config = validated;
+
+    // Normalize config by adding missing default keys.
+    writeFileSync(configPath, JSON.stringify(validated, null, 2));
   } catch (error) {
+    config = { ...defaultConfig };
+
+    try {
+      mkdirSync(dirname(configPath), { recursive: true });
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+    } catch (repairError) {
+      if (onError) {
+        onError(repairError);
+        return;
+      }
+
+      console.error(`Failed to repair config at ${configPath}:`, repairError);
+      return;
+    }
+
+    if (onError) {
+      onError(error);
+      return;
+    }
+
     console.error(`Failed to load config from ${configPath}:`, error);
   }
 }
@@ -86,7 +110,7 @@ function parseConfigValue(id: ConfigKey, value: string): Config[ConfigKey] {
 }
 
 export function saveConfig(id: ConfigKey, value: string): Config {
-  let parsed = parseConfigValue(id, value);
+  const parsed = parseConfigValue(id, value);
 
   const updated = { ...config, [id]: parsed };
   if (!configValidator.Check(updated)) {
@@ -97,9 +121,9 @@ export function saveConfig(id: ConfigKey, value: string): Config {
   writeFileSync(configPath, JSON.stringify(updated, null, 2));
   config = updated as Config;
 
-  return config;
+  return { ...config };
 }
 
 export function getConfig(): Config {
-  return config;
+  return { ...config };
 }

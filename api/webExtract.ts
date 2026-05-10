@@ -47,7 +47,7 @@ function isPrivateHostname(hostname: string): boolean {
     host.startsWith("10.") ||
     host.startsWith("192.168.") ||
     /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
-    host.startsWith("169.254")
+    host.startsWith("169.254.")
   );
 }
 
@@ -203,9 +203,11 @@ export async function webExtract(
 
     const markdown = getMarkdownFromHTML(body.innerHTML ?? "");
 
+    const content = `${metaString}\n\n---\n\n${markdown}`;
+
     return {
       sourceUrl: validatedUrl,
-      content: `${metaString}\n\n---\n\n${truncateContent(markdown, MAX_MARKDOWN_CHARS)}`,
+      content: truncateContent(content, MAX_MARKDOWN_CHARS),
     };
   } finally {
     timeout.cleanup();

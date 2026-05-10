@@ -73,7 +73,7 @@ export function registerConfigCommand(pi: ExtensionAPI) {
             try {
               saveConfig(id as ConfigKey, newValue);
             } catch (err) {
-              ctx.ui.notify(theme.fg("error", errorMessage(err)));
+              ctx.ui.notify(errorMessage(err), "error");
             }
           },
           () => done(undefined),
