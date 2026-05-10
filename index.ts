@@ -1,8 +1,8 @@
 import { type ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { loadConfig } from "./helpers/config";
-import { registerSearchTool } from "./tools/searchTool";
-import { registerExtractTool } from "./tools/extractTool";
-import { registerConfigCommand } from "./tools/configCommand";
+import { registerSearchTool } from "./tools/search-tool";
+import { registerExtractTool } from "./tools/extract-tool";
+import { registerConfigCommand } from "./tools/config-command";
 import { errorMessage } from "./helpers/error";
 
 export default function (pi: ExtensionAPI) {

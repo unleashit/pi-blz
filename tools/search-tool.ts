@@ -5,11 +5,11 @@ import type {
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "typebox";
 import { getConfig } from "../helpers/config";
-import { webSearch, formatSearchResults } from "../api/webSearch";
+import { webSearch, formatSearchResults } from "../api/web-search";
 import { errorMessage, isAbortError, isTimeoutError } from "../helpers/error";
-import { renderTextResult } from "../helpers/renderTextResult";
+import { renderTextResult } from "../helpers/render-text-result";
 import { type ToolStatus } from "../types/tool";
-import { getToolFailureStatus } from "../helpers/getToolFailureStatus";
+import { getToolFailureStatus } from "../helpers/tool-status";
 
 interface SearchToolDetails {
   query: string;
