@@ -1,3 +1,5 @@
+export type ExtractKind = "html" | "text";
+
 export function createTimeoutSignal(
   timeoutMs: number,
   parentSignal?: AbortSignal,
@@ -19,4 +21,21 @@ export function createTimeoutSignal(
     signal,
     cleanup: () => clearTimeout(timer),
   };
+}
+
+export function getContentType(res: Response): string {
+  const header = res.headers.get("content-type") ?? "";
+  return header.split(";")[0]?.trim().toLowerCase() ?? "";
+}
+
+export function getExtractKind(contentType: string): ExtractKind | null {
+  if (contentType === "text/html" || contentType === "application/xhtml+xml") {
+    return "html";
+  }
+
+  if (contentType.startsWith("text/")) {
+    return "text";
+  }
+
+  return null;
 }

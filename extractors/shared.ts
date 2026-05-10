@@ -1,5 +1,14 @@
+export const MAX_TEXT_CHARS = 500_000;
 export const MAX_HTML_CHARS = 1_000_000;
 export const MAX_MARKDOWN_CHARS = 100_000;
+
+export type ExtractContent = { type: "text"; text: string };
+
+export interface ExtractResponse {
+  sourceUrl: string;
+  contentType: string;
+  content: ExtractContent[];
+}
 
 export function truncateContent(
   content: string,
@@ -14,4 +23,13 @@ export function truncateContent(
       : "...";
 
   return `${content.slice(0, maxChars)}${display}`;
+}
+
+export function getExtractTextLength(
+  content: Array<{ type: string; text?: string }>,
+): number {
+  return content.reduce((sum, item) => {
+    if (item.type !== "text") return sum;
+    return sum + (item.text?.length ?? 0);
+  }, 0);
 }

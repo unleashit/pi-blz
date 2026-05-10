@@ -1,27 +1,17 @@
-import { parseHTML } from "linkedom";
-import { createTimeoutSignal } from "../helpers/request";
+import {
+  createTimeoutSignal,
+  getContentType,
+  getExtractKind,
+} from "../helpers/request";
 import { getValidUrl, absolutizeUrls } from "../helpers/url";
-import {
-  assertHtmlResponse,
-  denoiseBody,
-  buildMetaString,
-  getMarkdownFromHTML,
-} from "../extractors/html";
-import {
-  MAX_HTML_CHARS,
-  MAX_MARKDOWN_CHARS,
-  truncateContent,
-} from "../extractors/shared";
+import { type ExtractResponse } from "../extractors/shared";
+import { extractPlainText } from "../extractors/text";
+import { extractHtml } from "../extractors/html";
 
 export interface ExtractOptions {
   timeoutMs: number;
   signal?: AbortSignal;
   allowPrivateUrls: boolean;
-}
-
-export interface ExtractResponse {
-  sourceUrl: string;
-  content: string;
 }
 
 const headers: Record<string, string> = {
@@ -57,33 +47,21 @@ export async function webExtract(
       throw new Error(`Fetch returned ${res.status} ${res.statusText}`);
     }
 
-    assertHtmlResponse(res);
+    const contentType = getContentType(res);
+    const kind = getExtractKind(contentType);
 
-    const raw = await res.text();
+    switch (kind) {
+      case "html":
+        return extractHtml(validatedUrl, contentType, res);
 
-    if (raw.length > MAX_HTML_CHARS) {
-      throw new Error(
-        `Content too large after download: ${raw.length} characters`,
-      );
+      case "text":
+        return extractPlainText(validatedUrl, contentType, res);
+
+      default:
+        throw new Error(
+          `Unsupported content type: ${contentType || "unknown"}`,
+        );
     }
-
-    const { document } = parseHTML(raw);
-    const body = document.body;
-
-    if (!body) throw new Error("Fetch returned empty body");
-
-    denoiseBody(body);
-    absolutizeUrls(body, validatedUrl);
-
-    const metaString = buildMetaString(document);
-    const markdown = getMarkdownFromHTML(body.innerHTML ?? "");
-
-    const content = `${metaString}\n\n---\n\n${markdown}`;
-
-    return {
-      sourceUrl: validatedUrl,
-      content: truncateContent(content, MAX_MARKDOWN_CHARS, "verbose"),
-    };
   } finally {
     timeout.cleanup();
   }

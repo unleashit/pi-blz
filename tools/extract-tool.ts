@@ -13,11 +13,13 @@ import {
   getApproxTokens,
   renderTextResult,
 } from "../ui/tool-rendering";
+import type { ExtractKind } from "../helpers/request";
+import { getExtractTextLength } from "../extractors/shared";
 
 interface ExtractToolDetails {
   url: string;
   status: ToolStatus;
-  charCount?: number;
+  contentType?: string;
   error?: string;
 }
 
@@ -58,11 +60,11 @@ export function registerExtractTool(pi: ExtensionAPI) {
         });
 
         return {
-          content: [{ type: "text", text: result.content }],
+          content: result.content,
           details: {
             url: result.sourceUrl,
             status: "success",
-            charCount: result.content.length,
+            contentType: result.contentType,
           },
         };
       } catch (err) {
@@ -126,7 +128,7 @@ export function registerExtractTool(pi: ExtensionAPI) {
       const verbose = getConfig().verbose;
 
       if (!verbose) {
-        const charCount = details.charCount ?? 0;
+        const charCount = getExtractTextLength(result.content) ?? 0;
 
         return new Text(
           theme.fg(

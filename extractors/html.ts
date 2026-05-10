@@ -1,6 +1,12 @@
+import { parseHTML } from "linkedom";
 import TurndownService from "turndown";
-
-const MAX_HTML_CHARS = 1_000_000;
+import {
+  type ExtractResponse,
+  MAX_HTML_CHARS,
+  MAX_MARKDOWN_CHARS,
+  truncateContent,
+} from "./shared";
+import { absolutizeUrls } from "../helpers/url";
 
 const turndown = new TurndownService({
   headingStyle: "atx",
@@ -8,22 +14,6 @@ const turndown = new TurndownService({
   bulletListMarker: "-",
   codeBlockStyle: "fenced",
 });
-
-export function assertHtmlResponse(res: Response): void {
-  const contentType = res.headers.get("content-type") ?? "";
-
-  if (
-    !contentType.includes("text/html") &&
-    !contentType.includes("application/xhtml+xml")
-  ) {
-    throw new Error(`Unsupported content type: ${contentType || "unknown"}`);
-  }
-
-  const contentLength = Number(res.headers.get("content-length") ?? "0");
-  if (contentLength > MAX_HTML_CHARS) {
-    throw new Error(`Response too large: ${contentLength} bytes`);
-  }
-}
 
 export function denoiseBody(body: Element) {
   body
@@ -73,4 +63,58 @@ export function buildMetaString(document: Document): string {
 
 export function getMarkdownFromHTML(html: Element["innerHTML"]): string {
   return turndown.turndown(html).trimStart();
+}
+
+export async function extractHtml(
+  sourceUrl: string,
+  contentType: string,
+  res: Response,
+): Promise<ExtractResponse> {
+  const contentLength = Number(res.headers.get("content-length") ?? "0");
+  if (contentLength > MAX_HTML_CHARS) {
+    throw new Error(`Response too large: ${contentLength} bytes`);
+  }
+
+  const raw = await res.text();
+
+  if (raw.length > MAX_HTML_CHARS) {
+    throw new Error(
+      `Content too large after download: ${raw.length} characters`,
+    );
+  }
+
+  const { document } = parseHTML(raw);
+  const body = document.body;
+
+  if (!body) throw new Error("Fetch returned empty body");
+
+  denoiseBody(body);
+  absolutizeUrls(body, sourceUrl);
+
+  const metaString = buildMetaString(document);
+  const markdown = getMarkdownFromHTML(body.innerHTML ?? "");
+
+  const content = [
+    `Source URL: ${sourceUrl}`,
+    `Content-Type: ${contentType}`,
+    "",
+    "---",
+    "",
+    metaString,
+    "",
+    "---",
+    "",
+    markdown,
+  ].join("\n");
+
+  return {
+    sourceUrl,
+    contentType,
+    content: [
+      {
+        type: "text",
+        text: truncateContent(content, MAX_MARKDOWN_CHARS, "verbose"),
+      },
+    ],
+  };
 }
