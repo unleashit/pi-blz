@@ -11,7 +11,7 @@ import type { SearchToolDetails } from "./types";
 import {
   getToolFailureStatus,
   buildToolCallText,
-  buildToolResultText,
+  buildToolTextOutput,
   buildSearchResultsSummary,
 } from "../ui/tool-rendering";
 
@@ -127,7 +127,7 @@ export function registerSearchTool(pi: ExtensionAPI) {
         return new Text(summary, 0, 0);
       }
 
-      const text = buildToolResultText(result, options, theme);
+      const text = buildToolTextOutput(result, options, theme);
       return new Text(text, 0, 0);
     },
   });

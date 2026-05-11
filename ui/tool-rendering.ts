@@ -54,7 +54,7 @@ function isImageResult(result: AgentToolResult<ExtractToolDetails>): boolean {
   return result.details.contentType?.startsWith("image/") ?? false;
 }
 
-export function buildToolResultText(
+export function buildToolTextOutput(
   result: AgentToolResult<ExtractToolDetails | SearchToolDetails>,
   options: ToolRenderResultOptions,
   theme: Theme,

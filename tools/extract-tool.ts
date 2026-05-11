@@ -11,7 +11,7 @@ import type { ExtractToolDetails } from "./types";
 import {
   getToolFailureStatus,
   buildToolCallText,
-  buildToolResultText,
+  buildToolTextOutput,
   buildExtractContentSummary,
 } from "../ui/tool-rendering";
 
@@ -119,7 +119,7 @@ export function registerExtractTool(pi: ExtensionAPI) {
         return new Text(text, 0, 0);
       }
 
-      const text = buildToolResultText(result, options, theme);
+      const text = buildToolTextOutput(result, options, theme);
       return new Text(text, 0, 0);
     },
   });
