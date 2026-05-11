@@ -23,7 +23,7 @@ export async function extractPdf(
     throw new Error(`PDF too large after download: ${buffer.byteLength}`);
   }
 
-  const pdf = await getDocumentProxy(new Int8Array(buffer));
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
   const { totalPages, text } = await extractText(pdf, { mergePages: true });
 
   const body = Array.isArray(text) ? text.join("\n\n") : text;
