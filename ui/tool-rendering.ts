@@ -4,11 +4,12 @@ import type {
   Theme,
 } from "@mariozechner/pi-coding-agent";
 import { keyHint } from "@mariozechner/pi-coding-agent";
-import type { ExtractToolDetails } from "../tools/extract-tool";
-import type { SearchToolDetails } from "../tools/search-tool";
+import type {
+  ToolStatus,
+  SearchToolDetails,
+  ExtractToolDetails,
+} from "../tools/types";
 import { getExtractTextLength, formatBytes } from "../extractors/shared";
-
-export type ToolStatus = "success" | "aborted" | "error";
 
 interface ToolStatusDetails {
   status: ToolStatus;
@@ -59,7 +60,10 @@ export function buildToolResultText(
   theme: Theme,
   maxCollapsedLines = 20,
 ): string {
-  const output = result.content.find((c) => c.type === "text")?.text ?? "";
+  const output = result.content
+    .filter((c) => c.type === "text")
+    .map((c) => c.text)
+    .join("\n\n");
 
   if (!output) return "";
 
@@ -94,12 +98,12 @@ export function buildExtractContentSummary(
 ): string {
   if (isImageResult(result)) {
     const format = result.details.contentType?.split("/")[1] ?? "";
-    const fileSize = result.details.byteLength ?? 0;
+    const sizeText =
+      result.details.byteLength === undefined
+        ? ""
+        : `: ${formatBytes(result.details.byteLength)}`;
 
-    return theme.fg(
-      "dim",
-      `Image attached (.${format}): ${formatBytes(fileSize)}`,
-    );
+    return theme.fg("dim", `Image attached (.${format})${sizeText}`);
   }
 
   const textLength = getExtractTextLength(result.content);

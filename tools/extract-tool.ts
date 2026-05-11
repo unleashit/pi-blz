@@ -7,22 +7,13 @@ import { getConfig } from "../helpers/config";
 import { webExtract } from "../api/web-extract";
 import { Text } from "@mariozechner/pi-tui";
 import { errorMessage, isAbortError, isTimeoutError } from "../helpers/error";
+import type { ExtractToolDetails } from "./types";
 import {
-  type ToolStatus,
   getToolFailureStatus,
   buildToolCallText,
   buildToolResultText,
   buildExtractContentSummary,
 } from "../ui/tool-rendering";
-import { getExtractTextLength } from "../extractors/shared";
-
-export interface ExtractToolDetails {
-  url: string;
-  status: ToolStatus;
-  contentType?: string;
-  byteLength?: number;
-  error?: string;
-}
 
 export function registerExtractTool(pi: ExtensionAPI) {
   pi.registerTool({
