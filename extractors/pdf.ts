@@ -27,9 +27,15 @@ export async function extractPdf(
   }
 
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
-  const { totalPages, text } = await extractText(pdf, { mergePages: true });
+  const { totalPages, text } = await extractText(pdf, { mergePages: false });
 
-  const body = Array.isArray(text) ? text.join("\n\n") : text;
+  const pages = Array.isArray(text) ? text : [text];
+
+  const body = pages
+    .map((pageText, index) =>
+      [`Page ${index + 1}`, "", pageText.trim()].join("\n"),
+    )
+    .join("\n\n---\n\n");
 
   const content = [
     `Source URL: ${sourceUrl}`,
