@@ -16,6 +16,8 @@ This extension provides two LLM-callable tools:
 | PDF        | Text extracted per page with headers and separators (text-native PDFs only, no OCR) |
 | Images     | Attached with metadata (format, size)                                               |
 
+![Example: searching and extracting university admission info](images/example.png)
+
 ## Requirements
 
 - **Node.js 20+** (extensions run via jiti)
@@ -60,6 +62,8 @@ Run `/search-config` in pi to adjust settings at runtime:
 | Verbose            | false, true                       | Show full results instead of compact summary                           |
 
 Settings persist to `~/.pi/agent/pi-searxng-suite.json`.
+
+![Example: configuring the extension via pi command](images/settings.png)
 
 ## Security
 
