@@ -1,9 +1,9 @@
 {
   "name": "pi-searxng-suite",
+  "version": "0.1.0",
   "description": "SearxNG-powered web search and extraction tools for pi.",
   "type": "module",
   "module": "index.ts",
-  "license": "MIT",
   "keywords": [
     "pi",
     "pi-package",
@@ -11,12 +11,16 @@
     "web-search",
     "web-fetch"
   ],
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
+  "author": "Fedor Vasilev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blazer2k/pi-searxng-suite.git"
   },
-  "private": true,
+  "bugs": {
+    "url": "https://github.com/blazer2k/pi-searxng-suite/issues"
+  },
+  "homepage": "https://github.com/blazer2k/pi-searxng-suite#readme",
   "dependencies": {
     "linkedom": "^0.18.12",
     "turndown": "^7.2.4",
@@ -30,5 +34,10 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
   }
 }
