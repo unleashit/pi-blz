@@ -63,7 +63,7 @@ export function buildMetaString(document: Document): string {
   return metaString;
 }
 
-export function getMarkdownFromHTML(html: Element["innerHTML"]): string {
+function getMarkdownFromHTML(html: Element["innerHTML"]): string {
   return turndown.turndown(html).trimStart();
 }
 
