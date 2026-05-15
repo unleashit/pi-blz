@@ -1,11 +1,11 @@
 import type {
   ExtensionAPI,
   AgentToolResult,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { getConfig } from "../helpers/config";
 import { webExtract } from "../api/web-extract";
-import { Text } from "@mariozechner/pi-tui";
+import { Text } from "@earendil-works/pi-tui";
 import { errorMessage, isAbortError, isTimeoutError } from "../helpers/error";
 import type { ExtractToolDetails } from "./types";
 import {

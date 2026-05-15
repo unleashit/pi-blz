@@ -2,8 +2,8 @@ import {
   type ExtensionAPI,
   DynamicBorder,
   getSettingsListTheme,
-} from "@mariozechner/pi-coding-agent";
-import { SettingsList, Container, Text } from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-coding-agent";
+import { SettingsList, Container, Text } from "@earendil-works/pi-tui";
 import { type ConfigKey, getConfig, saveConfig } from "../helpers/config";
 import { getSettingsList } from "../ui/settings-list";
 import { errorMessage } from "../helpers/error";

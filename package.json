@@ -1,6 +1,6 @@
 {
   "name": "pi-searxng-suite",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SearxNG-powered web search and extraction tools for pi.",
   "type": "module",
   "module": "index.ts",
@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/turndown": "^5.0.6",
     "typescript": "^5"
   },
   "pi": {

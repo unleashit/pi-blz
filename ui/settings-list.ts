@@ -1,4 +1,4 @@
-import { type SettingItem } from "@mariozechner/pi-tui";
+import { type SettingItem } from "@earendil-works/pi-tui";
 import { type Config } from "../helpers/config";
 
 export function getSettingsList(config: Config): SettingItem[] {
