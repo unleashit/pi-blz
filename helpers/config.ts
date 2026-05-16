@@ -8,16 +8,20 @@ const configPath = join(homedir(), ".pi", "agent", "pi-searxng-suite.json");
 
 export interface Config {
   limit: number;
+  llmCanOverrideLimit: boolean;
   timeoutMs: number;
   safesearch: 0 | 1 | 2;
+  llmCanPickCategory: boolean;
   allowPrivateUrls: boolean;
   verbose: boolean;
 }
 
 const defaultConfig: Config = {
   limit: 10,
+  llmCanOverrideLimit: false,
   timeoutMs: 15000,
   safesearch: 0,
+  llmCanPickCategory: true,
   allowPrivateUrls: false,
   verbose: false,
 };
@@ -25,8 +29,10 @@ const defaultConfig: Config = {
 const ConfigSchema = Type.Object(
   {
     limit: Type.Number({ minimum: 1, maximum: 50 }),
+    llmCanOverrideLimit: Type.Boolean(),
     timeoutMs: Type.Number({ minimum: 1000, maximum: 120000 }),
     safesearch: Type.Union([Type.Literal(0), Type.Literal(1), Type.Literal(2)]),
+    llmCanPickCategory: Type.Boolean(),
     allowPrivateUrls: Type.Boolean(),
     verbose: Type.Boolean(),
   },
@@ -94,6 +100,8 @@ function parseConfigValue(id: ConfigKey, value: string): Config[ConfigKey] {
   switch (id) {
     case "limit":
       return Number(value);
+    case "llmCanOverrideLimit":
+      return value === "true";
     case "timeoutMs":
       return Number(value);
     case "safesearch":
@@ -102,6 +110,8 @@ function parseConfigValue(id: ConfigKey, value: string): Config[ConfigKey] {
         throw new Error(`Invalid safesearch value: ${value}`);
       }
       return num;
+    case "llmCanPickCategory":
+      return value === "true";
     case "allowPrivateUrls":
       return value === "true";
     case "verbose":
