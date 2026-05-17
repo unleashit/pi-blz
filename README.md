@@ -53,17 +53,38 @@ These must be available to the process running pi – set them in your shell pro
 
 Run `/search-config` in pi to adjust settings at runtime:
 
-| Setting            | Options                           | Description                                                            |
-| ------------------ | --------------------------------- | ---------------------------------------------------------------------- |
-| Results limit      | 1, 5, 10, 15, 20                  | Maximum results per search                                             |
-| Timeout            | 5s, 10s, 15s, 30s                 | Request timeout                                                        |
-| SafeSearch         | 0 (off), 1 (moderate), 2 (strict) | Filter explicit content                                                |
-| Allow private URLs | false, true                       | Allow requests to localhost and private IP ranges (`web_extract` only) |
-| Verbose            | false, true                       | Show full results instead of compact summary                           |
+| Setting                | Options                           | Description                                                            |
+| ---------------------- | --------------------------------- | ---------------------------------------------------------------------- |
+| Results limit          | 1, 5, 10, 15, 20                  | Maximum results per search                                             |
+| LLM can override limit | false, true                       | Allow the LLM to request fewer results per search                      |
+| Timeout                | 5s, 10s, 15s, 30s                 | Request timeout                                                        |
+| SafeSearch             | 0 (off), 1 (moderate), 2 (strict) | Filter explicit content                                                |
+| LLM can pick category  | false, true                       | Allow the LLM to choose a search category                              |
+| Allow private URLs     | false, true                       | Allow requests to localhost and private IP ranges (`web_extract` only) |
+| Verbose                | false, true                       | Show full results instead of compact summary                           |
 
 Settings persist to `~/.pi/agent/pi-searxng-suite.json`.
 
+> **Note:** Changes to **LLM can override limit** and **LLM can pick category** require `/reload` to take effect, as they alter the tool schema presented to the LLM. Other settings (limit, timeout, SafeSearch, etc.) apply immediately.
+
 ![Example: configuring the extension via pi command](images/settings.png)
+
+## Search Categories
+
+When **LLM can pick category** is enabled, the LLM can target searches to specific SearxNG categories:
+
+| Category       | Use case                               |
+| -------------- | -------------------------------------- |
+| `general`      | Default – searches all enabled engines |
+| `images`       | Image search                           |
+| `videos`       | Video search                           |
+| `news`         | News articles                          |
+| `it`           | IT and programming                     |
+| `science`      | Scientific papers and articles         |
+| `files`        | File downloads                         |
+| `social media` | Social media posts                     |
+
+The LLM receives the category list in the tool description and picks the best match for each query.
 
 ## Security
 
