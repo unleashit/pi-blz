@@ -1,45 +1,22 @@
 {
-  "name": "pi-searxng-suite",
-  "version": "0.2.3",
-  "description": "SearxNG-based web search with category filtering and multi-format URL extraction for pi.",
+  "name": "@blazer2k/pi-blz",
+  "version": "0.0.0",
+  "private": true,
   "type": "module",
-  "module": "index.ts",
-  "keywords": [
-    "pi",
-    "pi-package",
-    "searxng",
-    "web-search",
-    "web-fetch"
+  "workspaces": [
+    "packages/*"
   ],
-  "author": "Fedor Vasilev",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/blazer2k/pi-searxng-suite.git"
-  },
-  "bugs": {
-    "url": "https://github.com/blazer2k/pi-searxng-suite/issues"
-  },
-  "homepage": "https://github.com/blazer2k/pi-searxng-suite#readme",
-  "dependencies": {
-    "linkedom": "^0.18.12",
-    "turndown": "^7.2.4",
-    "unpdf": "^1.6.2"
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*",
-    "typebox": "*"
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "prepublishOnly": "npm run check",
+    "publish": "npm publish -ws --access public",
+    "publish:dry": "npm publish -ws --access public --dry-run"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/turndown": "^5.0.6",
     "typescript": "^5"
   },
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ],
-    "image": "https://raw.githubusercontent.com/blazer2k/pi-searxng-suite/main/images/bg.jpg"
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
