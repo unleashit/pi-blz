@@ -5,7 +5,9 @@
   "type": "module",
   "keywords": [
     "pi",
-    "pi-package"
+    "pi-package",
+    "personality",
+    "communication-style"
   ],
   "author": "Fedor Vasilev",
   "license": "MIT",
@@ -24,6 +26,7 @@
   "files": [
     "src",
     "builtin",
+    "images",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -35,6 +38,7 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/blazer2k/pi-blz/main/packages/pi-personality/images/bg.jpg"
   }
 }
