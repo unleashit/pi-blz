@@ -77,9 +77,29 @@ function shimmerText(
   return out;
 }
 
+function assembleRunDuration(start: number): string {
+  const duration = Date.now() - start;
+  const totalSeconds = Math.floor(duration / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (hours === 0 && minutes === 0) {
+    parts.push(`${(duration / 1000).toFixed(1)}s`);
+  } else {
+    parts.push(`${seconds}s`);
+  }
+
+  return parts.join(" ");
+}
+
 export function setupWorkingIndicator(pi: ExtensionAPI) {
   let currentPhase: WorkingPhase = "idle";
 
+  let runStartTime = 0;
   let animTimer: ReturnType<typeof setInterval> | null = null;
 
   let baseRgb: Color | undefined;
@@ -102,11 +122,7 @@ export function setupWorkingIndicator(pi: ExtensionAPI) {
     ctx.ui.setWorkingMessage("");
 
     function renderFrame(): void {
-      const shimmered = shimmerText(
-        getMessageForPhase(currentPhase),
-        baseRgb,
-        hiRgb,
-      );
+      const shimmered = shimmerText(message, baseRgb, hiRgb);
       ctx.ui.setWorkingIndicator({
         frames: [shimmered],
         intervalMs: ANIM_INTERVAL_MS,
@@ -139,6 +155,7 @@ export function setupWorkingIndicator(pi: ExtensionAPI) {
   });
 
   pi.on("agent_start", async (_event, ctx) => {
+    runStartTime = Date.now();
     setPhase(ctx, "processing");
   });
 
@@ -152,5 +169,9 @@ export function setupWorkingIndicator(pi: ExtensionAPI) {
 
   pi.on("agent_end", async (_event, ctx) => {
     setPhase(ctx, "idle");
+
+    if (runStartTime > 0) {
+      ctx.ui.notify(`Took ${assembleRunDuration(runStartTime)}`);
+    }
   });
 }
