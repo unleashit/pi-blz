@@ -69,23 +69,18 @@ class RoundedEditor extends CustomEditor {
       ? formatTokens(this.ctx.model.contextWindow)
       : "?";
     const usage = this.ctx.getContextUsage();
+    const pctValue = usage?.percent ?? null;
     const pct =
-      usage?.percent != null
-        ? `${usage.percent.toFixed(1)}%/${modelCW}`
-        : `?%/${modelCW}`;
+      pctValue != null ? `${pctValue.toFixed(1)}%/${modelCW}` : `?%/${modelCW}`;
 
     let cwd = this.ctx.cwd;
     const home = process.env.HOME ?? process.env.USERPROFILE;
     if (home && cwd.startsWith(home)) cwd = `~${cwd.slice(home.length)}`;
 
-    return { modelId, pct, cwd };
+    return { modelId, pct, pctValue, cwd };
   }
 
-  private buildTopLine(
-    width: number,
-    cwd: string,
-    border: BorderFn,
-  ): string {
+  private buildTopLine(width: number, cwd: string, border: BorderFn): string {
     const topRight = ` ${border(cwd)} `;
     const topGap = Math.max(1, width - 3 - visibleWidth(topRight));
     return `${border("╭")}${border("─".repeat(topGap))}${topRight}${border("─╮")}`;
@@ -95,15 +90,30 @@ class RoundedEditor extends CustomEditor {
     width: number,
     modelId: string,
     pct: string,
+    pctValue: number | null,
     inputTokens: number,
     outputTokens: number,
     border: BorderFn,
   ): string {
-    const bottomLeft = ` ${this.ctx.ui.theme.fg("accent", modelId)} `;
-    const bottomRight = this.ctx.ui.theme.fg(
-      "accent",
-      ` ↑${formatTokens(inputTokens)} ↓${formatTokens(outputTokens)} ${pct} `,
+    const bottomLeft = ` ${this.ctx.ui.theme.fg("text", modelId)} `;
+
+    let coloredPct: string;
+
+    // pi's default behaviour
+    if (pctValue !== null && pctValue > 90) {
+      coloredPct = this.ctx.ui.theme.fg("error", pct);
+    } else if (pctValue !== null && pctValue > 70) {
+      coloredPct = this.ctx.ui.theme.fg("warning", pct);
+    } else {
+      coloredPct = this.ctx.ui.theme.fg("text", pct);
+    }
+
+    const usageStr = this.ctx.ui.theme.fg(
+      "text",
+      ` ↑${formatTokens(inputTokens)} ↓${formatTokens(outputTokens)}`,
     );
+
+    const bottomRight = `${usageStr} ${coloredPct} `;
     const bw = visibleWidth(bottomLeft);
     const rw = visibleWidth(bottomRight);
     const botGap = Math.max(1, width - 4 - bw - rw);
@@ -142,7 +152,7 @@ class RoundedEditor extends CustomEditor {
 
   override render(width: number): string[] {
     const { inputTokens, outputTokens } = getTotalUsage(this.ctx);
-    const { modelId, pct, cwd } = this.buildStatusInfo();
+    const { modelId, pct, pctValue, cwd } = this.buildStatusInfo();
 
     const innerWidth = Math.max(1, width - 2);
     const lines = super.render(innerWidth);
@@ -164,6 +174,7 @@ class RoundedEditor extends CustomEditor {
         width,
         modelId,
         pct,
+        pctValue,
         inputTokens,
         outputTokens,
         border,
