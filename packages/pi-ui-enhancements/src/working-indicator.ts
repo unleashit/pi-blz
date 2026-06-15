@@ -3,6 +3,7 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { RESET_FG, type Color, rgbFg, blend, resolveTheme } from "./colors";
+import type { Handle } from "./types";
 
 const LABEL = "Working";
 const INTERRUPT_MSG = "esc to interrupt";
@@ -56,28 +57,34 @@ function assembleRunDuration(start: number): string {
   return parts.join(" ");
 }
 
-export function setupWorkingIndicator(pi: ExtensionAPI) {
-  let active = false;
+export function registerWorkingIndicator(
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+): Handle {
   let runStartTime = 0;
   let animTimer: ReturnType<typeof setInterval> | null = null;
 
-  function setActive(ctx: ExtensionContext, value: boolean): void {
-    if (active === value) return;
-    active = value;
-
-    if (!active) {
-      ctx.ui.setWorkingIndicator({ frames: [] });
-      ctx.ui.setWorkingMessage("");
-      stopAnimation();
-      return;
+  function stopAnimation(): void {
+    if (animTimer) {
+      clearInterval(animTimer);
+      animTimer = null;
     }
+  }
 
-    const theme = resolveTheme(ctx);
+  function stopIndicator(): void {
+    ctx.ui.setWorkingIndicator({ frames: [] });
+    ctx.ui.setWorkingMessage("");
+    stopAnimation();
+  }
+
+  function startAnimation(): void {
+    if (animTimer) return;
 
     stopAnimation();
     ctx.ui.setWorkingMessage("");
 
     function renderFrame(): void {
+      const theme = resolveTheme(ctx);
       const shimmered = shimmerText(LABEL, theme.baseRgb, theme.highlightRgb);
       const suffix =
         runStartTime > 0
@@ -94,27 +101,27 @@ export function setupWorkingIndicator(pi: ExtensionAPI) {
     animTimer = setInterval(renderFrame, ANIM_INTERVAL_MS);
   }
 
-  function stopAnimation(): void {
-    if (animTimer) {
-      clearInterval(animTimer);
-      animTimer = null;
-    }
-  }
-
-  pi.on("session_start", async (_event, ctx) => {
-    setActive(ctx, false);
-  });
-
-  pi.on("agent_start", async (_event, ctx) => {
+  pi.on("agent_start", async (_event) => {
     runStartTime = Date.now();
-    setActive(ctx, true);
+    startAnimation();
   });
 
-  pi.on("agent_end", async (_event, ctx) => {
-    setActive(ctx, false);
+  pi.on("agent_end", async (event) => {
+    stopIndicator();
 
     if (runStartTime > 0) {
-      ctx.ui.notify(`Took ${assembleRunDuration(runStartTime)}`);
+      const lastAssistant = [...event.messages]
+        .reverse()
+        .find((m) => m.role === "assistant");
+      if (lastAssistant?.stopReason !== "aborted") {
+        ctx.ui.notify(`Worked for ${assembleRunDuration(runStartTime)}`);
+      }
     }
   });
+
+  return {
+    dispose() {
+      stopIndicator();
+    },
+  };
 }
