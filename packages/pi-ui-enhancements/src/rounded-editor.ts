@@ -108,10 +108,14 @@ class RoundedEditor extends CustomEditor {
       coloredPct = this.ctx.ui.theme.fg("text", pct);
     }
 
-    const usageStr = this.ctx.ui.theme.fg(
-      "text",
-      ` ↑${formatTokens(inputTokens)} ↓${formatTokens(outputTokens)}`,
-    );
+    let usageStr = "";
+
+    if (inputTokens > 0 && outputTokens > 0) {
+      usageStr = this.ctx.ui.theme.fg(
+        "text",
+        ` ↑${formatTokens(inputTokens)} ↓${formatTokens(outputTokens)}`,
+      );
+    }
 
     const bottomRight = `${usageStr} ${coloredPct} `;
     const bw = visibleWidth(bottomLeft);
@@ -158,9 +162,14 @@ class RoundedEditor extends CustomEditor {
     const lines = super.render(innerWidth);
     if (lines.length < 2) return lines;
 
-    const border = this.ctx.ui.theme.getThinkingBorderColor(
-      this.pi.getThinkingLevel() ?? "off",
-    );
+    const text = this.getText();
+    const isBashMode = text.trim().startsWith("!");
+
+    const border = isBashMode
+      ? this.ctx.ui.theme.getBashModeBorderColor()
+      : this.ctx.ui.theme.getThinkingBorderColor(
+          this.pi.getThinkingLevel() ?? "off",
+        );
 
     // Top line
     lines[0] = this.buildTopLine(width, cwd, border);

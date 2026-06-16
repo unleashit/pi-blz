@@ -113,7 +113,7 @@ export function registerWorkingIndicator(
       const lastAssistant = [...event.messages]
         .reverse()
         .find((m) => m.role === "assistant");
-      if (lastAssistant?.stopReason !== "aborted") {
+      if (lastAssistant?.stopReason === "stop") {
         ctx.ui.notify(`Worked for ${assembleRunDuration(runStartTime)}`);
       }
     }
