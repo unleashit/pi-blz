@@ -3,13 +3,14 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerRoundedEditor } from "./rounded-editor";
 import { registerWorkingIndicator } from "./working-indicator";
 import { patchReadTool } from "./tools/read";
+import { patchWriteTool } from "./tools/write";
 import type { Handle } from "./types";
 
 let handles: Handle[] = [];
 
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
-    handles = [patchReadTool(pi, ctx)];
+    handles = [patchReadTool(pi, ctx), patchWriteTool(pi, ctx)];
 
     if (ctx.hasUI) {
       handles.push(

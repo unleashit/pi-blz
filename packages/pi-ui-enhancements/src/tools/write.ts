@@ -1,48 +1,36 @@
-import type {
-  ExtensionAPI,
-  ExtensionContext,
-  ToolRenderResultOptions,
-  ReadToolDetails,
-  Theme,
-  ReadToolInput,
-} from "@earendil-works/pi-coding-agent";
-import { createReadTool, keyHint } from "@earendil-works/pi-coding-agent";
-import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import type { Handle } from "../types";
 import {
-  type BaseRenderState,
-  type ToolStatus,
-  MAX_CALL_WIDTH,
+  createWriteTool,
+  keyHint,
+  Theme,
+  highlightCode,
+  getLanguageFromPath,
+  type ExtensionAPI,
+  type ExtensionContext,
+  type ToolRenderResultOptions,
+  type WriteToolInput,
+} from "@earendil-works/pi-coding-agent";
+import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import {
   clearBlinkTimers,
   countLines,
   getResultSymbolColor,
   getStatusColor,
   getStatusSymbol,
+  MAX_CALL_WIDTH,
   renderPath,
   updateBlinkTimer,
+  type BaseRenderState,
+  type ToolStatus,
 } from "./tool-rendering";
+import type { Handle } from "../types";
 
-function formatReadLineRange(
-  args: ReadToolInput | undefined,
-  theme: Theme,
-): string {
-  if (args?.offset === undefined && args?.limit === undefined) return "";
-  const startLine = args.offset ?? 1;
-  const endLine = args.limit !== undefined ? startLine + args.limit - 1 : "";
-  return theme.fg("warning", `:${startLine}${endLine ? `-${endLine}` : ""}`);
-}
-
-function formatReadResult(
-  result: {
-    content: Array<{ type: string; text?: string }>;
-    details?: unknown;
-  },
+function formatWriteResult(
+  result: { content: Array<{ type: string; text?: string }> },
   state: BaseRenderState,
   options: ToolRenderResultOptions,
   theme: Theme,
+  args: WriteToolInput,
 ): string {
-  const details = result.details as ReadToolDetails | undefined;
-  const hasImage = result.content.some((c) => c.type === "image");
   const textContent = result.content
     .filter((c) => c.type === "text" && typeof c.text === "string")
     .map((c) => c.text ?? "")
@@ -54,9 +42,7 @@ function formatReadResult(
       : textContent;
     const lines = output.split("\n");
     let end = lines.length;
-    while (end > 0 && lines[end - 1] === "") {
-      end--;
-    }
+    while (end > 0 && lines[end - 1] === "") end--;
     const trimmed = lines.slice(0, end);
 
     if (options.expanded) {
@@ -80,46 +66,47 @@ function formatReadResult(
     return (
       theme.fg(getResultSymbolColor(state), "└─ ") +
       theme.fg("error", truncated + "...") +
-      theme.fg("muted", " (") +
-      keyHint("app.tools.expand", "to expand") +
-      theme.fg("muted", ")")
+      theme.fg("muted", " (expand for details)")
     );
   }
 
-  const parts: string[] = [];
-  if (textContent && !hasImage) {
-    const lines = countLines(textContent);
-    parts.push(`${lines} ${lines === 1 ? "line" : "lines"}`);
-  }
-  if (hasImage) {
-    const match = textContent.match(/original\s+(\d+)x(\d+)/);
-    if (match) {
-      parts.push(`Image (${match[1]}x${match[2]})`);
-    } else {
-      parts.push("Image");
-    }
-  }
-  if (details?.truncation?.truncated) {
-    parts.push("truncated");
-  }
+  const lines = countLines(args.content);
+  const summary = `${lines} ${lines === 1 ? "line" : "lines"}`;
 
-  const summary = parts.length > 0 ? parts.join(", ") : "no content";
+  if (options.expanded) {
+    const lang = getLanguageFromPath(args.path);
+
+    let expanded = "";
+
+    const previewLines = args.content.split("\n").slice(0, 20);
+    expanded += highlightCode(previewLines.join("\n"), lang).join("\n");
+    if (lines > 20) {
+      expanded += "\n" + theme.fg("muted", `... ${lines - 20} more lines`);
+    }
+    return expanded;
+  }
 
   return (
     theme.fg(getResultSymbolColor(state), "└─ ") +
-    theme.fg("toolOutput", summary)
+    theme.fg("toolOutput", summary) +
+    theme.fg("muted", " (") +
+    keyHint("app.tools.expand", "to expand") +
+    theme.fg("muted", ")")
   );
 }
 
-export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
-  const tool = createReadTool(ctx.cwd);
+export function patchWriteTool(
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+): Handle {
+  const tool = createWriteTool(ctx.cwd);
 
   pi.registerTool({
-    name: "read",
-    label: "Read",
+    name: "write",
+    label: "Write",
     description: tool.description,
-    promptSnippet: "Read file contents",
-    promptGuidelines: ["Use read to examine files instead of cat or sed."],
+    promptSnippet: "Create or overwrite files",
+    promptGuidelines: ["Use write only for new files or complete rewrites."],
     parameters: tool.parameters,
     renderShell: "self",
     async execute(toolCallId, params, signal, onUpdate) {
@@ -131,26 +118,36 @@ export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
       const state = toolCtx.state as BaseRenderState;
       const status: ToolStatus = state.hasResult
         ? "done"
-        : !toolCtx.executionStarted
-          ? "not_started"
-          : toolCtx.isPartial
-            ? "running"
+        : !toolCtx.argsComplete ||
+            (toolCtx.executionStarted && toolCtx.isPartial)
+          ? "running"
+          : !toolCtx.executionStarted
+            ? "not_started"
             : "done";
 
       updateBlinkTimer(state, status === "running", toolCtx.invalidate);
 
-      let content = theme.fg(
+      let callLine = theme.fg(
         getStatusColor(status, state),
         `${getStatusSymbol(status)} `,
       );
-      const renderArgs = args as ReadToolInput;
-      const pathDisplay = renderPath(renderArgs.path, theme, toolCtx.cwd);
+      callLine += theme.fg("toolTitle", theme.bold("Write "));
+      callLine += renderPath(args.path, theme, toolCtx.cwd);
 
-      content += theme.fg("toolTitle", theme.bold("Read "));
-      content += pathDisplay;
-      content += formatReadLineRange(renderArgs, theme);
+      let content = truncateToWidth(callLine, MAX_CALL_WIDTH);
+      if (toolCtx.isPartial && typeof args.content === "string") {
+        content +=
+          "\n" +
+          formatWriteResult(
+            { content: [] },
+            state,
+            { expanded: toolCtx.expanded, isPartial: toolCtx.isPartial },
+            theme,
+            args,
+          );
+      }
 
-      text.setText(truncateToWidth(content, MAX_CALL_WIDTH));
+      text.setText(content);
       return text;
     },
     renderResult(result, options, theme, toolCtx) {
@@ -163,22 +160,13 @@ export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
             new Text("", paddingX, 0));
       state.expanded = options.expanded;
 
-      const details = result.details as ReadToolDetails | undefined;
-
-      const nextHasResult = true;
-      const nextTruncated = details?.truncation?.truncated === true;
       const nextIsError = toolCtx.isError;
-
-      const changed =
-        state.hasResult !== nextHasResult ||
-        state.truncated !== nextTruncated ||
-        state.isError !== nextIsError;
-
-      state.hasResult = nextHasResult;
-      state.truncated = nextTruncated;
+      const changed = state.isError !== nextIsError;
       state.isError = nextIsError;
+      state.hasResult = true;
 
-      text.setText(formatReadResult(result, state, options, theme));
+      const writeArgs = toolCtx.args as WriteToolInput;
+      text.setText(formatWriteResult(result, state, options, theme, writeArgs));
 
       if (changed) {
         queueMicrotask(() => toolCtx.invalidate());
