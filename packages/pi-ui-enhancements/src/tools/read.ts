@@ -9,17 +9,20 @@ import {
   type ReadToolDetails,
   type Theme,
 } from "@earendil-works/pi-coding-agent";
-import { homedir } from "node:os";
-import { isAbsolute, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
-import {
-  getCapabilities,
-  hyperlink,
-  Text,
-  truncateToWidth,
-  visibleWidth,
-} from "@earendil-works/pi-tui";
+import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
+import {
+  type BaseRenderState,
+  type ToolStatus,
+  MAX_CALL_WIDTH,
+  clearBlinkTimers,
+  countLines,
+  getResultSymbolColor,
+  getStatusColor,
+  getStatusSymbol,
+  renderPath,
+  updateBlinkTimer,
+} from "./tool-rendering";
 
 type ReadRenderArgs = {
   path?: string;
@@ -27,58 +30,6 @@ type ReadRenderArgs = {
   offset?: number;
   limit?: number;
 };
-
-function shortenPath(filePath: string): string {
-  const home = homedir();
-  return filePath.startsWith(home)
-    ? `~${filePath.slice(home.length)}`
-    : filePath;
-}
-
-function renderReadPath(rawPath: unknown, theme: Theme, cwd: string): string {
-  if (rawPath == null || rawPath === "") return theme.fg("toolOutput", "...");
-  if (typeof rawPath !== "string") return theme.fg("error", "[invalid arg]");
-
-  const styled = theme.fg("accent", shortenPath(rawPath));
-  if (!getCapabilities().hyperlinks) return styled;
-
-  const absolutePath = isAbsolute(rawPath) ? rawPath : resolve(cwd, rawPath);
-  return hyperlink(styled, pathToFileURL(absolutePath).href);
-}
-
-type Status = "done" | "not_started" | "running";
-
-type ReadRenderState = {
-  blinkTimer?: ReturnType<typeof setInterval>;
-  hasResult?: boolean;
-  truncated?: boolean;
-  isError?: boolean;
-  expanded?: boolean;
-};
-
-const BLINK_INTERVAL_MS = 500;
-const MAX_CALL_WIDTH = 120;
-const activeBlinkTimers = new Set<ReturnType<typeof setInterval>>();
-
-function getStatusSymbol(status: Status): string {
-  if (status === "done") return "●";
-  if (status === "not_started") return "○";
-
-  return Math.floor(Date.now() / BLINK_INTERVAL_MS) % 2 === 0 ? "●" : "○";
-}
-
-function getStatusColor(
-  status: Status,
-  state: ReadRenderState,
-): "muted" | "success" | "warning" | "error" {
-  if (state.isError) return "error";
-  if (state.truncated) return "warning";
-
-  if (status === "not_started") return "muted";
-
-  // Running blink and normal done are both success-colored.
-  return "success";
-}
 
 function formatReadLineRange(
   args: ReadRenderArgs | undefined,
@@ -90,50 +41,12 @@ function formatReadLineRange(
   return theme.fg("warning", `:${startLine}${endLine ? `-${endLine}` : ""}`);
 }
 
-function getResultSymbolColor(
-  state: ReadRenderState,
-): "dim" | "warning" | "error" {
-  if (state.isError) return "error";
-  if (state.truncated) return "warning";
-  return "dim";
-}
-
-function updateBlinkTimer(
-  state: ReadRenderState,
-  running: boolean,
-  invalidate: () => void,
-): void {
-  if (running && !state.blinkTimer) {
-    state.blinkTimer = setInterval(invalidate, BLINK_INTERVAL_MS);
-    activeBlinkTimers.add(state.blinkTimer);
-    return;
-  }
-
-  if (!running && state.blinkTimer) {
-    clearInterval(state.blinkTimer);
-    activeBlinkTimers.delete(state.blinkTimer);
-    state.blinkTimer = undefined;
-  }
-}
-
-function clearBlinkTimers(): void {
-  for (const timer of activeBlinkTimers) {
-    clearInterval(timer);
-  }
-  activeBlinkTimers.clear();
-}
-
-function countLines(text: string): number {
-  const trimmed = text.endsWith("\n") ? text.slice(0, -1) : text;
-  return trimmed.length === 0 ? 0 : trimmed.split("\n").length;
-}
-
 function formatReadResult(
   result: {
     content: Array<{ type: string; text?: string }>;
     details?: unknown;
   },
-  state: ReadRenderState,
+  state: BaseRenderState,
   options: ToolRenderResultOptions,
   theme: Theme,
 ): string {
@@ -224,8 +137,8 @@ export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
     renderCall(args, theme, toolCtx) {
       const text =
         (toolCtx.lastComponent as Text | undefined) ?? new Text("", 1, 0);
-      const state = toolCtx.state as ReadRenderState;
-      const status: Status = state.hasResult
+      const state = toolCtx.state as BaseRenderState;
+      const status: ToolStatus = state.hasResult
         ? "done"
         : !toolCtx.executionStarted
           ? "not_started"
@@ -240,7 +153,7 @@ export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
         `${getStatusSymbol(status)} `,
       );
       const renderArgs = args as ReadRenderArgs;
-      const pathDisplay = renderReadPath(
+      const pathDisplay = renderPath(
         renderArgs.path ?? renderArgs.file_path,
         theme,
         toolCtx.cwd,
@@ -254,7 +167,7 @@ export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
       return text;
     },
     renderResult(result, options, theme, toolCtx) {
-      const state = toolCtx.state as ReadRenderState;
+      const state = toolCtx.state as BaseRenderState;
       const paddingX = options.expanded ? 3 : 1;
       const text =
         state.expanded !== options.expanded
