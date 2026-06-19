@@ -2,11 +2,11 @@ import type {
   ExtensionAPI,
   ExtensionContext,
   ToolRenderResultOptions,
-  LsToolDetails,
+  FindToolDetails,
   Theme,
-  LsToolInput,
+  FindToolInput,
 } from "@earendil-works/pi-coding-agent";
-import { createLsTool } from "@earendil-works/pi-coding-agent";
+import { createFindTool } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
 import { TOOL_PROMPTS } from "./tool-prompts";
@@ -28,11 +28,7 @@ import {
   updateResultState,
 } from "./tool-rendering";
 
-function isDirectoryEntry(line: string): boolean {
-  return line.endsWith("/");
-}
-
-function formatLsResult(
+function formatFindResult(
   result: {
     content: Array<{ type: string; text?: string }>;
     details?: unknown;
@@ -41,7 +37,7 @@ function formatLsResult(
   options: ToolRenderResultOptions,
   theme: Theme,
 ): string {
-  const details = result.details as LsToolDetails | undefined;
+  const details = result.details as FindToolDetails | undefined;
   const textContent = extractTextContent(result);
 
   if (state.isError) {
@@ -51,24 +47,28 @@ function formatLsResult(
   const hint = buildHint(theme);
 
   const normalized = normalizeOutput(textContent);
-  if (normalized === "" || normalized === "(empty directory)") {
+  if (normalized === "" || normalized === "No files found matching pattern") {
     return (
       theme.fg(getResultSymbolColor(state), "└─ ") +
-      theme.fg("muted", "(empty directory)")
+      theme.fg("muted", "(no matches found)")
     );
   }
 
-  const entries = normalized.split("\n");
-  const totalEntries = entries.length;
+  // Strip trailing notice block appended by the find tool, e.g.
+  // "\n\n[1000 results limit reached. Use limit=2000 for more, or refine pattern]"
+  const body = normalized.includes("\n\n[")
+    ? normalized.slice(0, normalized.lastIndexOf("\n\n["))
+    : normalized;
+
+  const files = body.split("\n").filter((f) => f.length > 0);
+  const totalFiles = files.length;
 
   const summaryParts: string[] = [];
-  summaryParts.push(
-    `${totalEntries} ${totalEntries === 1 ? "entry" : "entries"}`,
-  );
+  summaryParts.push(`${totalFiles} ${totalFiles === 1 ? "file" : "files"}`);
 
-  if (details?.entryLimitReached !== undefined) {
+  if (details?.resultLimitReached !== undefined) {
     summaryParts.push(
-      theme.fg("warning", `${details.entryLimitReached} limit`),
+      theme.fg("warning", `${details.resultLimitReached} limit`),
     );
   }
   if (details?.truncation?.truncated) {
@@ -85,8 +85,8 @@ function formatLsResult(
     );
   }
 
-  const visibleEntries = entries.slice(0, MAX_EXPANDED_ENTRIES);
-  const remaining = Math.max(0, totalEntries - MAX_EXPANDED_ENTRIES);
+  const visibleFiles = files.slice(0, MAX_EXPANDED_ENTRIES);
+  const remaining = Math.max(0, totalFiles - MAX_EXPANDED_ENTRIES);
 
   const lines: string[] = [];
 
@@ -95,16 +95,11 @@ function formatLsResult(
       theme.fg("toolOutput", summary),
   );
 
-  visibleEntries.forEach((entry, index) => {
-    const isLastVisible =
-      index === visibleEntries.length - 1 && remaining === 0;
+  visibleFiles.forEach((file, index) => {
+    const isLastVisible = index === visibleFiles.length - 1 && remaining === 0;
     const prefix: "│  " | "└─ " = isLastVisible ? "└─ " : "│  ";
 
-    const coloredEntry = isDirectoryEntry(entry)
-      ? theme.fg("success", entry)
-      : entry;
-
-    const treeLine = formatTreeLine(coloredEntry, {
+    const treeLine = formatTreeLine(file, {
       theme,
       state,
       prefix,
@@ -117,45 +112,50 @@ function formatLsResult(
   if (remaining > 0) {
     lines.push(
       theme.fg(getResultSymbolColor(state), "└─ ") +
-        theme.fg("muted", `${remaining} more entries`),
+        theme.fg("muted", `${remaining} more files`),
     );
   }
 
   return lines.join("\n");
 }
 
-export function patchLsTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
-  const tool = createLsTool(ctx.cwd);
+export function patchFindTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
+  const tool = createFindTool(ctx.cwd);
 
   return registerPatchedTool({
     pi,
     tool,
-    name: "ls",
-    label: "ls",
-    promptSnippet: TOOL_PROMPTS.ls.promptSnippet,
+    name: "find",
+    label: "find",
+    promptSnippet: TOOL_PROMPTS.find.promptSnippet,
     renderCall(args, theme, toolCtx) {
       const state = toolCtx.state as BaseRenderState;
       const { text, prefix } = getCallRenderParts(state, theme, toolCtx);
 
       let content = prefix;
 
-      const renderArgs = args as LsToolInput;
-      const title = theme.fg("toolTitle", theme.bold("Ls "));
+      const renderArgs = args as FindToolInput;
+      const title = theme.fg("toolTitle", theme.bold("Find "));
+      const pattern = theme.fg("success", renderArgs.pattern);
       const limit = renderArgs.limit
         ? theme.fg("muted", ` (limit ${renderArgs.limit})`)
         : "";
-      const pathWidth = Math.max(
-        1,
-        MAX_CALL_WIDTH - visibleWidth(content + title + limit),
-      );
-      const pathDisplay = renderPath(
-        renderArgs.path,
-        theme,
-        toolCtx.cwd,
-        pathWidth,
-      );
+      const pathPrefix = renderArgs.path ? " in " : "";
+      const pathDisplay = renderArgs.path
+        ? `${pathPrefix}${renderPath(
+            renderArgs.path,
+            theme,
+            toolCtx.cwd,
+            Math.max(
+              1,
+              MAX_CALL_WIDTH -
+                visibleWidth(content + title + pattern + pathPrefix + limit),
+            ),
+          )}`
+        : "";
 
       content += title;
+      content += pattern;
       content += pathDisplay;
       content += limit;
 
@@ -168,7 +168,7 @@ export function patchLsTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
       const state = toolCtx.state as BaseRenderState;
       const text = getResultText(state, options, toolCtx.lastComponent);
 
-      const details = result.details as LsToolDetails | undefined;
+      const details = result.details as FindToolDetails | undefined;
 
       const changed = updateResultState(state, {
         truncated: details?.truncation?.truncated === true,
@@ -177,7 +177,7 @@ export function patchLsTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
 
       invalidateIfChanged(changed, toolCtx.invalidate);
 
-      text.setText(formatLsResult(result, state, options, theme));
+      text.setText(formatFindResult(result, state, options, theme));
       return text;
     },
   });

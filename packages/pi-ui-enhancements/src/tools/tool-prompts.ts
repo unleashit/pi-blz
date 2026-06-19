@@ -5,6 +5,9 @@ export const TOOL_PROMPTS = {
   ls: {
     promptSnippet: "List directory contents",
   },
+  find: {
+    promptSnippet: "Find files by glob pattern (respects .gitignore)",
+  },
   read: {
     promptSnippet: "Read file contents",
     promptGuidelines: ["Use read to examine files instead of cat or sed."],
