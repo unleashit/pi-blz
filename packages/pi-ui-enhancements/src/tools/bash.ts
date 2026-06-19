@@ -6,19 +6,26 @@ import type {
   BashToolDetails,
 } from "@earendil-works/pi-coding-agent";
 import { createBashTool } from "@earendil-works/pi-coding-agent";
-import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
+import { TOOL_PROMPTS } from "./tool-prompts";
+import { registerPatchedTool } from "./tool-registration";
 import {
   type BaseRenderState,
   MAX_CALL_WIDTH,
   buildHint,
-  clearBlinkTimers,
   countLines,
+  extractTextContent,
+  formatErrorBody,
+  getCallRenderParts,
   getResultSymbolColor,
-  getStatusColor,
-  getStatusSymbol,
-  updateBlinkTimer,
+  getResultText,
+  invalidateIfChanged,
+  normalizeOutput,
+  updateResultState,
 } from "./tool-rendering";
+
+type BashToolInput = Parameters<ReturnType<typeof createBashTool>["execute"]>[1];
 
 type BashRenderState = BaseRenderState & {
   startedAt?: number;
@@ -34,11 +41,8 @@ function formatDuration(ms: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
-function normalizeOutput(text: string): string {
-  return text.endsWith("\n") ? text.slice(0, -1) : text;
-}
-
 function getOutputWidth(): number {
+  // Account for tree prefixes/padding around rendered output lines.
   return Math.max(
     1,
     (process.stdout.columns ?? Number(process.env.COLUMNS) ?? MAX_CALL_WIDTH) -
@@ -84,10 +88,7 @@ function formatBashResult(
   theme: Theme,
 ): string {
   const details = result.details as BashDetailsWithTiming | undefined;
-  const textContent = result.content
-    .filter((c) => c.type === "text" && typeof c.text === "string")
-    .map((c) => c.text ?? "")
-    .join("\n");
+  const textContent = extractTextContent(result);
 
   const hint = buildHint(theme);
   const elapsedMs =
@@ -101,19 +102,12 @@ function formatBashResult(
       : `${options.isPartial ? "elapsed" : "took"} ${formatDuration(elapsedMs)}`;
 
   if (state.isError) {
-    const output = normalizeOutput(textContent);
-    const lines = output.split("\n");
-    let end = lines.length;
-    while (end > 0 && lines[end - 1] === "") {
-      end--;
-    }
-    const trimmed = lines.slice(0, end);
-    const joined = trimmed.join("\n");
+    const errorBody = formatErrorBody(textContent, options);
 
     if (options.expanded) {
       const summary = durationSummary ? `${durationSummary}, error` : "error";
       const outputLines = formatOutputLines(
-        joined,
+        errorBody.text,
         theme,
         state,
         "error",
@@ -129,26 +123,12 @@ function formatBashResult(
         .join("\n");
     }
 
-    const maxLineWidth = Math.floor(
-      (process.stdout.columns ??
-        Number(process.env.COLUMNS) ??
-        MAX_CALL_WIDTH) / 2,
-    );
-
-    if (trimmed.length === 1 && visibleWidth(joined) <= maxLineWidth) {
-      const prefix = durationSummary ? `${durationSummary}, ` : "";
-      return (
-        theme.fg(getResultSymbolColor(state), "└─ ") +
-        theme.fg("error", `${prefix}${joined}`)
-      );
-    }
-
-    const truncated = joined.slice(0, maxLineWidth - 3);
     const prefix = durationSummary ? `${durationSummary}, ` : "";
+    const suffix = errorBody.truncated ? hint : "";
     return (
       theme.fg(getResultSymbolColor(state), "└─ ") +
-      theme.fg("error", `${prefix}${truncated}...`) +
-      hint
+      theme.fg("error", `${prefix}${errorBody.text}`) +
+      suffix
     );
   }
 
@@ -165,7 +145,7 @@ function formatBashResult(
     parts.push(
       theme.fg(
         "muted",
-        `${remainingLines} more ${remainingLines === 1 ? "line" : "lines"} `,
+        `${remainingLines} more ${remainingLines === 1 ? "line" : "lines"}`,
       ) + hint,
     );
   }
@@ -213,16 +193,20 @@ function formatBashResult(
 export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
   const tool = createBashTool(ctx.cwd);
 
-  pi.registerTool({
+  return registerPatchedTool({
+    pi,
+    tool,
     name: "bash",
     label: "bash",
-    description: tool.description,
-    promptSnippet: "Execute bash commands (ls, grep, find, etc.)",
-    parameters: tool.parameters,
-    renderShell: "self",
+    promptSnippet: TOOL_PROMPTS.bash.promptSnippet,
     async execute(toolCallId, params, signal, onUpdate) {
       const startedAt = Date.now();
-      const result = await tool.execute(toolCallId, params, signal, onUpdate);
+      const result = await tool.execute(
+        toolCallId,
+        params as BashToolInput,
+        signal,
+        onUpdate,
+      );
       const details = (result.details ?? {}) as BashDetailsWithTiming;
 
       return {
@@ -234,29 +218,23 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
       };
     },
     renderCall(args, theme, toolCtx) {
-      const text =
-        (toolCtx.lastComponent as Text | undefined) ?? new Text("", 1, 0);
       const state = toolCtx.state as BashRenderState;
-      const isDone =
-        state.hasResult || (!toolCtx.executionStarted && !toolCtx.isPartial);
-
-      updateBlinkTimer(state, !isDone, toolCtx.invalidate);
+      const renderArgs = args as BashToolInput;
+      const { text, prefix } = getCallRenderParts(state, theme, toolCtx);
 
       if (toolCtx.executionStarted && state.startedAt === undefined) {
         state.startedAt = Date.now();
         state.endedAt = undefined;
       }
 
-      let content = theme.fg(
-        getStatusColor(isDone, state),
-        `${getStatusSymbol(isDone)} `,
-      );
+      let content = prefix;
 
       const commandDisplay =
-        theme.fg("dim", "$ ") + theme.bold(theme.fg("accent", args.command));
+        theme.fg("dim", "$ ") +
+        theme.bold(theme.fg("accent", renderArgs.command));
 
-      const timeoutSuffix = args.timeout
-        ? theme.fg("muted", ` (timeout ${args.timeout}s)`)
+      const timeoutSuffix = renderArgs.timeout
+        ? theme.fg("muted", ` (timeout ${renderArgs.timeout}s)`)
         : "";
 
       content += theme.fg("toolTitle", theme.bold("Bash "));
@@ -268,13 +246,7 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
     },
     renderResult(result, options, theme, toolCtx) {
       const state = toolCtx.state as BashRenderState;
-      const paddingX = options.expanded ? 3 : 1;
-      const text =
-        state.expanded !== options.expanded
-          ? new Text("", paddingX, 0)
-          : ((toolCtx.lastComponent as Text | undefined) ??
-            new Text("", paddingX, 0));
-      state.expanded = options.expanded;
+      const text = getResultText(state, options, toolCtx.lastComponent);
 
       const details = result.details as BashToolDetails | undefined;
 
@@ -294,32 +266,15 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
         }
       }
 
-      const nextHasResult = true;
-      const nextTruncated = details?.truncation?.truncated === true;
-      const nextIsError = toolCtx.isError;
+      const changed = updateResultState(state, {
+        truncated: details?.truncation?.truncated === true,
+        isError: toolCtx.isError,
+      });
 
-      const changed =
-        state.hasResult !== nextHasResult ||
-        state.truncated !== nextTruncated ||
-        state.isError !== nextIsError;
-
-      state.hasResult = nextHasResult;
-      state.truncated = nextTruncated;
-      state.isError = nextIsError;
-
+      invalidateIfChanged(changed, toolCtx.invalidate);
       text.setText(formatBashResult(result, state, options, theme));
-
-      if (changed) {
-        queueMicrotask(() => toolCtx.invalidate());
-      }
 
       return text;
     },
   });
-
-  return {
-    dispose() {
-      clearBlinkTimers();
-    },
-  };
 }

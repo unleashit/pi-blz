@@ -7,19 +7,22 @@ import type {
   ReadToolInput,
 } from "@earendil-works/pi-coding-agent";
 import { createReadTool } from "@earendil-works/pi-coding-agent";
-import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
+import { TOOL_PROMPTS } from "./tool-prompts";
+import { registerPatchedTool } from "./tool-registration";
 import {
   type BaseRenderState,
   MAX_CALL_WIDTH,
-  buildHint,
-  clearBlinkTimers,
   countLines,
+  extractTextContent,
+  formatSimpleErrorResult,
+  getCallRenderParts,
   getResultSymbolColor,
-  getStatusColor,
-  getStatusSymbol,
+  getResultText,
+  invalidateIfChanged,
   renderPath,
-  updateBlinkTimer,
+  updateResultState,
 } from "./tool-rendering";
 
 function formatReadLineRange(
@@ -43,47 +46,10 @@ function formatReadResult(
 ): string {
   const details = result.details as ReadToolDetails | undefined;
   const hasImage = result.content.some((c) => c.type === "image");
-  const textContent = result.content
-    .filter((c) => c.type === "text" && typeof c.text === "string")
-    .map((c) => c.text ?? "")
-    .join("\n");
-
-  const hint = buildHint(theme);
+  const textContent = extractTextContent(result);
 
   if (state.isError) {
-    const output = textContent.endsWith("\n")
-      ? textContent.slice(0, -1)
-      : textContent;
-    const lines = output.split("\n");
-    let end = lines.length;
-    while (end > 0 && lines[end - 1] === "") {
-      end--;
-    }
-    const trimmed = lines.slice(0, end);
-
-    if (options.expanded) {
-      return theme.fg("error", trimmed.join("\n"));
-    }
-
-    const maxLineWidth = Math.floor(
-      (process.stdout.columns ??
-        Number(process.env.COLUMNS) ??
-        MAX_CALL_WIDTH) / 2,
-    );
-    const joined = trimmed.join("\n");
-
-    if (trimmed.length === 1 && visibleWidth(joined) <= maxLineWidth) {
-      return (
-        theme.fg(getResultSymbolColor(state), "└─ ") + theme.fg("error", joined)
-      );
-    }
-
-    const truncated = joined.slice(0, maxLineWidth - 3);
-    return (
-      theme.fg(getResultSymbolColor(state), "└─ ") +
-      theme.fg("error", truncated + "...") +
-      hint
-    );
+    return formatSimpleErrorResult(textContent, state, options, theme);
   }
 
   const parts: string[] = [];
@@ -114,30 +80,18 @@ function formatReadResult(
 export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
   const tool = createReadTool(ctx.cwd);
 
-  pi.registerTool({
+  return registerPatchedTool({
+    pi,
+    tool,
     name: "read",
     label: "read",
-    description: tool.description,
-    promptSnippet: "Read file contents",
-    promptGuidelines: ["Use read to examine files instead of cat or sed."],
-    parameters: tool.parameters,
-    renderShell: "self",
-    async execute(toolCallId, params, signal, onUpdate) {
-      return tool.execute(toolCallId, params, signal, onUpdate);
-    },
+    promptSnippet: TOOL_PROMPTS.read.promptSnippet,
+    promptGuidelines: [...TOOL_PROMPTS.read.promptGuidelines],
     renderCall(args, theme, toolCtx) {
-      const text =
-        (toolCtx.lastComponent as Text | undefined) ?? new Text("", 1, 0);
       const state = toolCtx.state as BaseRenderState;
-      const isDone =
-        state.hasResult || (!toolCtx.executionStarted && !toolCtx.isPartial);
+      const { text, prefix } = getCallRenderParts(state, theme, toolCtx);
 
-      updateBlinkTimer(state, !isDone, toolCtx.invalidate);
-
-      let content = theme.fg(
-        getStatusColor(isDone, state),
-        `${getStatusSymbol(isDone)} `,
-      );
+      let content = prefix;
 
       const renderArgs = args as ReadToolInput;
       const pathDisplay = renderPath(renderArgs.path, theme, toolCtx.cwd);
@@ -151,42 +105,19 @@ export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
     },
     renderResult(result, options, theme, toolCtx) {
       const state = toolCtx.state as BaseRenderState;
-      const paddingX = options.expanded ? 3 : 1;
-      const text =
-        state.expanded !== options.expanded
-          ? new Text("", paddingX, 0)
-          : ((toolCtx.lastComponent as Text | undefined) ??
-            new Text("", paddingX, 0));
-      state.expanded = options.expanded;
+      const text = getResultText(state, options, toolCtx.lastComponent);
 
       const details = result.details as ReadToolDetails | undefined;
 
-      const nextHasResult = true;
-      const nextTruncated = details?.truncation?.truncated === true;
-      const nextIsError = toolCtx.isError;
+      const changed = updateResultState(state, {
+        truncated: details?.truncation?.truncated === true,
+        isError: toolCtx.isError,
+      });
 
-      const changed =
-        state.hasResult !== nextHasResult ||
-        state.truncated !== nextTruncated ||
-        state.isError !== nextIsError;
-
-      state.hasResult = nextHasResult;
-      state.truncated = nextTruncated;
-      state.isError = nextIsError;
+      invalidateIfChanged(changed, toolCtx.invalidate);
 
       text.setText(formatReadResult(result, state, options, theme));
-
-      if (changed) {
-        queueMicrotask(() => toolCtx.invalidate());
-      }
-
       return text;
     },
   });
-
-  return {
-    dispose() {
-      clearBlinkTimers();
-    },
-  };
 }
