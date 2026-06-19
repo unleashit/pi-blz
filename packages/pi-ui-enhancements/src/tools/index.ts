@@ -6,11 +6,13 @@ import type { Handle } from "../types";
 import { patchBashTool } from "./bash";
 import { patchReadTool } from "./read";
 import { patchWriteTool } from "./write";
+import { patchEditTool } from "./edit";
 
 export function patchTools(pi: ExtensionAPI, ctx: ExtensionContext): Handle[] {
   return [
     patchReadTool(pi, ctx),
     patchWriteTool(pi, ctx),
     patchBashTool(pi, ctx),
+    patchEditTool(pi, ctx),
   ];
 }
