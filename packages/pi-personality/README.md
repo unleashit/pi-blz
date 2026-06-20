@@ -2,7 +2,7 @@
 
 Switchable communication styles for [pi](https://pi.dev), inspired by Codex CLI's `/personality` command.
 
-**Current version:** 0.1.2
+**Current version:** 0.2.0
 
 ## Why This Matters
 
@@ -18,11 +18,13 @@ This extension adds a `/personality` command that lets you pick a communication 
 
 ### Included Personalities
 
-| Personality | Style | Origin |
-|-------------|-------|--------|
-| **Pragmatic** | Concise, task-focused, direct. No fluff, no cheerleading. | Copied from Codex CLI |
-| **Friendly** | Warm, encouraging, collaborative. Uses "we" and "let's". | Copied from Codex CLI |
-| **Teacher** | Builds durable understanding while getting work done. Teaches at decision points. | Custom |
+| Personality   | Style                                                                             | Origin                |
+| ------------- | --------------------------------------------------------------------------------- | --------------------- |
+| **None**      | No personality prompt. Raw model behavior.                                        | —                     |
+| **Pragmatic** | Concise, task-focused, direct. No fluff, no cheerleading.                         | Copied from Codex CLI |
+| **Friendly**  | Warm, encouraging, collaborative. Uses "we" and "let's".                          | Copied from Codex CLI |
+| **Teacher**   | Builds durable understanding while getting work done. Teaches at decision points. | Custom                |
+| **Casual**    | Informal, natural, and easygoing. Keeps collaboration conversational.             | Custom                |
 
 ### Custom Personalities
 
@@ -60,7 +62,7 @@ Type `/personality` in pi to open the style picker. Select a personality and it 
 
 ## Caveats
 
-- **Mutates the system prompt.** The personality text is appended to the existing system prompt via the `before_agent_start` hook. This adds ~500-800 tokens to the context window.
+- **Mutates the system prompt.** The personality text is appended to the existing system prompt via the `before_agent_start` hook. This adds ~500-800 tokens to the context window (or zero with **None**).
 - **File changes require reload.** If you edit a personality `.md` file while pi is running, the extension will not pick up the changes until you `/reload` or switch to a different personality and back.
 - **Beware of untrusted prompts.** Custom personalities are injected directly into the system prompt. If you install personalities from unknown sources, review their content first; a malicious prompt could steer the agent's behavior in unintended ways.
 

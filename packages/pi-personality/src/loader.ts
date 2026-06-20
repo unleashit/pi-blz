@@ -76,10 +76,24 @@ function loadFromDir(dir: string): Map<string, Personality> {
 }
 
 export function loadPersonalities(): Map<string, Personality> {
-  const map = loadFromDir(BUILTIN_DIR);
+  // "None" is a synthetic option that disables personality injection
+  const map = new Map<string, Personality>([
+    [
+      "none",
+      {
+        name: "None",
+        description: "No personality prompt (raw model behavior)",
+        prompt: "",
+      },
+    ],
+  ]);
+
+  // Builtin personalities
+  for (const entry of loadFromDir(BUILTIN_DIR)) map.set(entry[0], entry[1]);
 
   // Custom personalities with the same name override builtin, others are added alongside
   for (const entry of loadFromDir(CUSTOM_DIR)) map.set(entry[0], entry[1]);
+
   return map;
 }
 
