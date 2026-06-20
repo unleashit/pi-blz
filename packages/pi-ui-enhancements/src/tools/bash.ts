@@ -39,6 +39,7 @@ type BashRenderState = BaseRenderState & {
   endedAt?: number;
   durationTimer?: ReturnType<typeof setInterval>;
   callTruncated?: boolean;
+  fullCommand?: string;
 };
 
 type BashDetailsWithTiming = BashToolDetails & {
@@ -95,6 +96,12 @@ function buildBashMetadataParts(
   }
 
   return { parts, needsHint };
+}
+
+function normalizeBashErrorText(text: string): string {
+  return normalizeOutput(text)
+    .replace(/^\(no output\)\n\n(?=Command exited with code \d+)/, "")
+    .replace(/\n{3,}(?=Command exited with code \d+)/, "\n");
 }
 
 function stripBashTruncationNotice(
@@ -174,9 +181,17 @@ function formatBashResult(
       ? undefined
       : `${options.isPartial ? "elapsed" : "took"} ${formatDuration(elapsedMs)}`;
 
+  // Prepend full command line when expanded and call was truncated
+  const commandLine =
+    options.expanded && state.callTruncated && state.fullCommand
+      ? theme.fg(getResultSymbolColor(state), "│  ") +
+        theme.fg("dim", "$ ") +
+        theme.fg("accent", state.fullCommand.replace(/\s+/g, " ").trim())
+      : undefined;
+
   if (state.isError) {
     const errorBody = formatErrorBody(
-      textContent,
+      normalizeBashErrorText(textContent),
       options,
       theme.fg("error", "..."),
     );
@@ -192,6 +207,7 @@ function formatBashResult(
         true,
       );
       return [
+        commandLine,
         theme.fg(
           getResultSymbolColor(state),
           outputLines.text ? "├─ " : "└─ ",
@@ -203,7 +219,8 @@ function formatBashResult(
     }
 
     const prefix = durationSummary ? `${durationSummary}, ` : "";
-    const suffix = errorBody.truncated ? hint : "";
+    const suffix =
+      errorBody.truncated || state.callTruncated ? hint : "";
     return (
       theme.fg(getResultSymbolColor(state), "└─ ") +
       theme.fg("error", `${prefix}${errorBody.text}`) +
@@ -277,17 +294,19 @@ function formatBashResult(
 
     if (
       metadataNeedsHint ||
+      commandLine ||
       (options.expanded && renderedOutput && shouldTruncate)
     ) {
       const outputLine = formatTreeLine(renderedOutput, {
         theme,
         state,
-        prefix: metadataSummary ? "└─ " : "└─ ",
+        prefix: "└─ ",
         width: getOutputWidth() + 3,
         mode: options.expanded ? "preserve" : "truncate",
         color: "toolOutput",
       });
       return [
+        commandLine,
         metadataSummary
           ? theme.fg(getResultSymbolColor(state), "├─ ") + metadataSummary
           : undefined,
@@ -310,6 +329,7 @@ function formatBashResult(
   }
 
   return [
+    commandLine,
     theme.fg(getResultSymbolColor(state), outputLines.text ? "├─ " : "└─ ") +
       summary,
     outputLines.text,
@@ -385,6 +405,7 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
       content += commandDisplay;
       content += timeoutSuffix;
       state.callTruncated = commandTruncated;
+      state.fullCommand = renderArgs.command;
       text.setText(content);
       return text;
     },
