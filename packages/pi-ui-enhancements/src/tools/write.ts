@@ -102,7 +102,7 @@ export function patchWriteTool(
       const renderArgs = args as WriteToolInput;
       const { text, prefix } = getCallRenderParts(state, theme, toolCtx);
 
-      let callLine = ` ${prefix}`;
+      let callLine = prefix;
 
       const title = theme.fg("toolTitle", theme.bold("Write "));
       const pathWidth = Math.max(
@@ -128,7 +128,7 @@ export function patchWriteTool(
             renderArgs,
           )
             .split("\n")
-            .map((line) => ` ${line}`)
+            .map((line) => line)
             .join("\n");
       }
 

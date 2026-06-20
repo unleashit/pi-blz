@@ -1,7 +1,6 @@
 import type {
   ExtensionAPI,
   ExtensionContext,
-  LsToolDetails,
   LsToolInput,
 } from "@earendil-works/pi-coding-agent";
 import { createLsTool } from "@earendil-works/pi-coding-agent";
@@ -16,10 +15,7 @@ import {
   buildRenderResult,
   formatListResult,
   getCallRenderParts,
-  getResultText,
-  invalidateIfChanged,
   renderPath,
-  updateResultState,
 } from "./tool-rendering";
 
 const LS_CONFIG: ListResultConfig = {
@@ -28,7 +24,12 @@ const LS_CONFIG: ListResultConfig = {
   pluralLabel: "entries",
   moreLabel: "more entries",
   details: { limitKey: "entryLimitReached" },
-  preprocess: (text) => text.split("\n"),
+  preprocess: (text) => {
+    const body = text.includes("\n\n[")
+      ? text.slice(0, text.lastIndexOf("\n\n["))
+      : text;
+    return body.split("\n").filter((entry) => entry.length > 0);
+  },
   renderItem: (item, theme) =>
     item.endsWith("/") ? theme.fg("success", item) : item,
 };
@@ -58,7 +59,7 @@ export function patchLsTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
         MAX_CALL_WIDTH - visibleWidth(content + title + limit),
       );
       const pathDisplay = renderPath(
-        renderArgs.path,
+        renderArgs.path || ".",
         theme,
         toolCtx.cwd,
         pathWidth,

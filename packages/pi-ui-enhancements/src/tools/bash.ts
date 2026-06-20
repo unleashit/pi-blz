@@ -97,6 +97,27 @@ function buildBashMetadataParts(
   return { parts, needsHint };
 }
 
+function stripBashTruncationNotice(
+  text: string,
+  details: BashDetailsWithTiming | undefined,
+): string {
+  if (!details?.truncation?.truncated && !details?.fullOutputPath) return text;
+
+  const normalized = normalizeOutput(text);
+  const footerStart = normalized.lastIndexOf("\n\n[");
+  if (footerStart === -1 || !normalized.endsWith("]")) return text;
+
+  const footer = normalized.slice(footerStart);
+  if (details.fullOutputPath && !footer.includes(details.fullOutputPath)) {
+    return text;
+  }
+  if (!details.fullOutputPath && !footer.includes("Showing lines")) {
+    return text;
+  }
+
+  return normalized.slice(0, footerStart).trimEnd();
+}
+
 function formatOutputLines(
   text: string,
   theme: Theme,
@@ -137,7 +158,10 @@ function formatBashResult(
   theme: Theme,
 ): string {
   const details = result.details as BashDetailsWithTiming | undefined;
-  const textContent = extractTextContent(result);
+  const rawTextContent = extractTextContent(result);
+  const textContent = state.isError
+    ? rawTextContent
+    : stripBashTruncationNotice(rawTextContent, details);
 
   const hint = buildHint(theme);
   const elapsedMs =
@@ -344,6 +368,7 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
         visibleWidth("$ ") +
         visibleWidth(timeoutSuffix);
       const commandBudget = Math.max(1, MAX_CALL_WIDTH - staticWidth);
+      const commandTruncated = visibleWidth(commandPreview) > commandBudget;
       const commandDisplay =
         theme.fg("dim", "$ ") +
         theme.bold(
@@ -359,7 +384,7 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
       content += theme.fg("toolTitle", theme.bold("Bash "));
       content += commandDisplay;
       content += timeoutSuffix;
-      state.callTruncated = visibleWidth(content) > MAX_CALL_WIDTH;
+      state.callTruncated = commandTruncated;
       text.setText(content);
       return text;
     },

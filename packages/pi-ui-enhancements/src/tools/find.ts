@@ -1,7 +1,6 @@
 import type {
   ExtensionAPI,
   ExtensionContext,
-  FindToolDetails,
   FindToolInput,
 } from "@earendil-works/pi-coding-agent";
 import { createFindTool } from "@earendil-works/pi-coding-agent";
@@ -16,14 +15,11 @@ import {
   buildRenderResult,
   formatListResult,
   getCallRenderParts,
-  getResultText,
-  invalidateIfChanged,
   renderPath,
-  updateResultState,
 } from "./tool-rendering";
 
 const FIND_CONFIG: ListResultConfig = {
-  emptyMessage: "(no matches found)",
+  emptyMessage: "No files found matching pattern",
   singularLabel: "file",
   pluralLabel: "files",
   moreLabel: "more files",

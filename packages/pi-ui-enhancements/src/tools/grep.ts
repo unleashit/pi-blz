@@ -16,14 +16,11 @@ import {
   buildRenderResult,
   formatListResult,
   getCallRenderParts,
-  getResultText,
-  invalidateIfChanged,
   renderPath,
-  updateResultState,
 } from "./tool-rendering";
 
 const GREP_CONFIG: ListResultConfig = {
-  emptyMessage: "(no matches found)",
+  emptyMessage: "No matches found",
   singularLabel: "line",
   pluralLabel: "lines",
   moreLabel: "more lines",

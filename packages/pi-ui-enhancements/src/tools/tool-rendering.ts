@@ -126,8 +126,11 @@ export function renderPath(
   theme: Theme,
   cwd: string,
   maxWidth?: number,
+  emptyFallback = "...",
 ): string {
-  if (rawPath == null || rawPath === "") return theme.fg("toolOutput", "...");
+  if (rawPath == null || rawPath === "") {
+    return theme.fg("toolOutput", emptyFallback);
+  }
   if (typeof rawPath !== "string") return theme.fg("error", "[invalid arg]");
 
   const displayPath = shortenPath(rawPath);
@@ -199,13 +202,40 @@ export function countLines(text: string): number {
   return trimmed.length === 0 ? 0 : trimmed.split("\n").length;
 }
 
+function stripAnsi(value: string): string {
+  if (!value.includes("\u001B") && !value.includes("\u009B")) return value;
+
+  // Kept in sync with pi's display sanitizer
+  const st = "(?:\\u0007|\\u001B\\u005C|\\u009C)";
+  const osc = `(?:\\u001B\\][\\s\\S]*?${st})`;
+  const csi =
+    "[\\u001B\\u009B][[\\]()#;?]*(?:\\d{1,4}(?:[;:]\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]";
+  return value.replace(new RegExp(`${osc}|${csi}`, "g"), "");
+}
+
+function sanitizeTextOutput(value: string): string {
+  return Array.from(stripAnsi(value))
+    .filter((char) => {
+      const code = char.codePointAt(0);
+      if (code === undefined) return false;
+      if (code === 0x09 || code === 0x0a || code === 0x0d) return true;
+      if (code <= 0x1f) return false;
+      if (code >= 0xfff9 && code <= 0xfffb) return false;
+      return true;
+    })
+    .join("")
+    .replace(/\r/g, "");
+}
+
 export function extractTextContent(result: {
   content: Array<{ type: string; text?: string }>;
 }): string {
-  return result.content
-    .filter((c) => c.type === "text" && typeof c.text === "string")
-    .map((c) => c.text ?? "")
-    .join("\n");
+  return sanitizeTextOutput(
+    result.content
+      .filter((c) => c.type === "text" && typeof c.text === "string")
+      .map((c) => c.text ?? "")
+      .join("\n"),
+  );
 }
 
 export function getMaxErrorLineWidth(): number {

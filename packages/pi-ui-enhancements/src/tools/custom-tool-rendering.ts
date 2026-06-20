@@ -34,13 +34,23 @@ const BUILTIN_TOOLS = new Set([
   "grep",
 ]);
 
-const PROTOTYPE_PATCHED = Symbol();
-const ORIGINAL_GET_ALL_TOOLS = Symbol();
-const WRAPPED_TOOL = Symbol();
+const PROTOTYPE_PATCHED = Symbol.for("pi-ui-enhancements.prototypePatched");
+const ORIGINAL_GET_ALL_TOOLS = Symbol.for(
+  "pi-ui-enhancements.originalGetAllTools",
+);
+const PATCH_REF_COUNT = Symbol.for("pi-ui-enhancements.patchRefCount");
+const PATCHED_GET_ALL_TOOLS = Symbol.for("pi-ui-enhancements.patchedGetAllTools");
+const WRAPPED_TOOL = Symbol.for("pi-ui-enhancements.wrappedTool");
+const WRAPPED_DEFINITION_CACHE = Symbol.for(
+  "pi-ui-enhancements.wrappedDefinitionCache",
+);
 
 type PatchedRunnerPrototype = ExtensionRunner & {
   [PROTOTYPE_PATCHED]?: boolean;
   [ORIGINAL_GET_ALL_TOOLS]?: ExtensionRunner["getAllRegisteredTools"];
+  [PATCH_REF_COUNT]?: number;
+  [PATCHED_GET_ALL_TOOLS]?: ExtensionRunner["getAllRegisteredTools"];
+  [WRAPPED_DEFINITION_CACHE]?: WeakMap<ToolDefinition, ToolDefinition>;
 };
 
 type CustomRenderState = BaseRenderState & {
@@ -158,6 +168,11 @@ function buildGenericResult(
 function wrapDefinition<T extends ToolDefinition>(definition: T): T {
   if (!shouldWrapTool(definition)) return definition;
 
+  const proto = ExtensionRunner.prototype as PatchedRunnerPrototype;
+  proto[WRAPPED_DEFINITION_CACHE] ??= new WeakMap();
+  const cached = proto[WRAPPED_DEFINITION_CACHE].get(definition);
+  if (cached) return cached as T;
+
   const originalRenderCall = definition.renderCall;
   const originalRenderResult = definition.renderResult;
 
@@ -215,29 +230,30 @@ function wrapDefinition<T extends ToolDefinition>(definition: T): T {
         return text;
       }
 
-      if (state.isError) {
-        text.setText(
-          formatSimpleErrorResult(
-            extractTextContent(result),
-            state,
-            options,
-            theme,
-          ),
-        );
+      let inner: Component;
+      try {
+        inner = originalRenderResult(result, options, theme, {
+          ...toolCtx,
+          lastComponent: state.resultComponent,
+        });
+      } catch {
+        text.setText(buildGenericResult(result, state, options, theme));
         return text;
       }
-
-      const inner = originalRenderResult(result, options, theme, {
-        ...toolCtx,
-        lastComponent: state.resultComponent,
-      });
       state.resultComponent = inner;
 
       const innerLines = inner.render(MAX_CALL_WIDTH);
       if (innerLines.length === 0) {
         text.setText(
-          theme.fg(getResultSymbolColor(state), "└─ ") +
-            theme.fg("muted", "(no output)"),
+          state.isError
+            ? formatSimpleErrorResult(
+                extractTextContent(result),
+                state,
+                options,
+                theme,
+              )
+            : theme.fg(getResultSymbolColor(state), "└─ ") +
+                theme.fg("muted", "(no output)"),
         );
         return text;
       }
@@ -254,6 +270,7 @@ function wrapDefinition<T extends ToolDefinition>(definition: T): T {
     },
   };
 
+  proto[WRAPPED_DEFINITION_CACHE].set(definition, wrapped);
   return wrapped as T;
 }
 
@@ -262,29 +279,55 @@ function wrapRegisteredTool(tool: RegisteredTool): RegisteredTool {
   return definition === tool.definition ? tool : { ...tool, definition };
 }
 
+function disposeCustomToolRenderingPatch(): void {
+  const current = ExtensionRunner.prototype as PatchedRunnerPrototype;
+  const nextRefCount = Math.max(0, (current[PATCH_REF_COUNT] ?? 1) - 1);
+  current[PATCH_REF_COUNT] = nextRefCount;
+
+  if (nextRefCount > 0) return;
+
+  if (
+    current[ORIGINAL_GET_ALL_TOOLS] &&
+    current.getAllRegisteredTools === current[PATCHED_GET_ALL_TOOLS]
+  ) {
+    current.getAllRegisteredTools = current[ORIGINAL_GET_ALL_TOOLS];
+  }
+  delete current[ORIGINAL_GET_ALL_TOOLS];
+  delete current[PATCHED_GET_ALL_TOOLS];
+  delete current[WRAPPED_DEFINITION_CACHE];
+  delete current[PATCH_REF_COUNT];
+  delete current[PROTOTYPE_PATCHED];
+}
+
 export function patchCustomToolRendering(): Handle {
   const proto = ExtensionRunner.prototype as PatchedRunnerPrototype;
 
   if (proto[PROTOTYPE_PATCHED]) {
-    return { dispose() {} };
+    proto[PATCH_REF_COUNT] = (proto[PATCH_REF_COUNT] ?? 1) + 1;
+    return {
+      dispose() {
+        disposeCustomToolRenderingPatch();
+      },
+    };
   }
 
   const original = proto.getAllRegisteredTools;
   proto[PROTOTYPE_PATCHED] = true;
+  proto[PATCH_REF_COUNT] = 1;
   proto[ORIGINAL_GET_ALL_TOOLS] = original;
+  proto[WRAPPED_DEFINITION_CACHE] = new WeakMap();
 
-  proto.getAllRegisteredTools = function getAllRegisteredToolsWithUiPatch() {
+  const patchedGetAllRegisteredTools = function getAllRegisteredToolsWithUiPatch(
+    this: ExtensionRunner,
+  ) {
     return original.call(this).map(wrapRegisteredTool);
   };
+  proto[PATCHED_GET_ALL_TOOLS] = patchedGetAllRegisteredTools;
+  proto.getAllRegisteredTools = patchedGetAllRegisteredTools;
 
   return {
     dispose() {
-      const current = ExtensionRunner.prototype as PatchedRunnerPrototype;
-      if (current[ORIGINAL_GET_ALL_TOOLS]) {
-        current.getAllRegisteredTools = current[ORIGINAL_GET_ALL_TOOLS];
-        delete current[ORIGINAL_GET_ALL_TOOLS];
-      }
-      delete current[PROTOTYPE_PATCHED];
+      disposeCustomToolRenderingPatch();
     },
   };
 }
