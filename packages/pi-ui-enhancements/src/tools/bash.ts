@@ -28,6 +28,8 @@ import {
   updateResultState,
 } from "./tool-rendering";
 
+const DURATION_UPDATE_INTERVAL_MS = 250;
+
 type BashToolInput = Parameters<
   ReturnType<typeof createBashTool>["execute"]
 >[1];
@@ -273,7 +275,7 @@ function formatBashResult(
 
     const inlineParts = [
       metadataSummary,
-      theme.fg("toolOutput", renderedOutput),
+      inlineOutput ? theme.fg("toolOutput", renderedOutput) : undefined,
     ]
       .filter(Boolean)
       .join(theme.fg("muted", ", "));
@@ -330,29 +332,35 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
       }
 
       let content = prefix;
-
       const commandPreview = toolCtx.expanded
         ? renderArgs.command
         : renderArgs.command.replace(/\s+/g, " ").trim();
-      const commandDisplay =
-        theme.fg("dim", "$ ") + theme.bold(theme.fg("accent", commandPreview));
-
       const timeoutSuffix = renderArgs.timeout
         ? theme.fg("muted", ` (timeout ${renderArgs.timeout}s)`)
         : "";
-
+      const staticWidth =
+        visibleWidth(prefix) +
+        visibleWidth("Bash ") +
+        visibleWidth("$ ") +
+        visibleWidth(timeoutSuffix);
+      const commandBudget = Math.max(1, MAX_CALL_WIDTH - staticWidth);
+      const commandDisplay =
+        theme.fg("dim", "$ ") +
+        theme.bold(
+          theme.fg(
+            "accent",
+            truncateToWidth(
+              commandPreview,
+              commandBudget,
+              theme.fg("accent", "..."),
+            ),
+          ),
+        );
       content += theme.fg("toolTitle", theme.bold("Bash "));
       content += commandDisplay;
       content += timeoutSuffix;
-
-      const shouldTruncate =
-        !toolCtx.expanded && visibleWidth(content) > MAX_CALL_WIDTH;
-      state.callTruncated = shouldTruncate;
-      text.setText(
-        shouldTruncate
-          ? truncateToWidth(content, MAX_CALL_WIDTH, theme.fg("accent", "..."))
-          : content,
-      );
+      state.callTruncated = visibleWidth(content) > MAX_CALL_WIDTH;
+      text.setText(content);
       return text;
     },
     renderResult(result, options, theme, toolCtx) {
@@ -366,7 +374,10 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
         options.isPartial &&
         !state.durationTimer
       ) {
-        state.durationTimer = setInterval(() => toolCtx.invalidate(), 1000);
+        state.durationTimer = setInterval(
+          () => toolCtx.invalidate(),
+          DURATION_UPDATE_INTERVAL_MS,
+        );
         registerToolTimer(state.durationTimer);
       }
 
