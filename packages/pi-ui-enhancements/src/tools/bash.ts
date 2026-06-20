@@ -296,20 +296,23 @@ function formatBashResult(
       commandLine ||
       (options.expanded && renderedOutput && shouldTruncate)
     ) {
-      const outputLine = formatTreeLine(renderedOutput, {
-        theme,
-        state,
-        prefix: "└─ ",
-        width: getOutputWidth() + 3,
-        mode: options.expanded ? "preserve" : "truncate",
-        color: "toolOutput",
-      });
+      const outputLine = renderedOutput
+        ? formatTreeLine(renderedOutput, {
+            theme,
+            state,
+            prefix: "└─ ",
+            width: getOutputWidth() + 3,
+            mode: options.expanded ? "preserve" : "truncate",
+            color: "toolOutput",
+          }).text
+        : undefined;
       return [
         commandLine,
         metadataSummary
-          ? theme.fg(getResultSymbolColor(state), "├─ ") + metadataSummary
+          ? theme.fg(getResultSymbolColor(state), outputLine ? "├─ " : "└─ ") +
+            metadataSummary
           : undefined,
-        outputLine.text,
+        outputLine,
       ]
         .filter((line): line is string => Boolean(line))
         .join("\n");
