@@ -126,10 +126,7 @@ export function patchWriteTool(
             { expanded: toolCtx.expanded, isPartial: toolCtx.isPartial },
             theme,
             renderArgs,
-          )
-            .split("\n")
-            .map((line) => line)
-            .join("\n");
+          );
       }
 
       text.setText(content);
