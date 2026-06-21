@@ -25,7 +25,10 @@ import {
   type BaseRenderState,
 } from "./tool-rendering";
 
-function parseDiffStats(diff: string): { added: number; removed: number } {
+export function parseDiffStats(diff: string): {
+  added: number;
+  removed: number;
+} {
   let added = 0;
   let removed = 0;
   for (const line of diff.split("\n")) {

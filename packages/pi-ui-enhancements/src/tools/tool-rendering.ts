@@ -48,7 +48,7 @@ export type FormatResultFn = (
 
 export const MAX_CALL_WIDTH = 80;
 
-/** Maximum number of entries to display in expanded list views (ls, find). */
+// Maximum number of entries to display in expanded list views (ls, find)
 export const MAX_EXPANDED_ENTRIES = 20;
 
 const BLINK_INTERVAL_MS = 500;

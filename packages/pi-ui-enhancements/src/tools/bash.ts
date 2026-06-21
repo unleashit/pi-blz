@@ -224,7 +224,10 @@ function formatBashResult(
     if (lineCount > 1) {
       const visibleLineCount = Math.min(lineCount, 5);
       const remainingLines = Math.max(0, lineCount - visibleLineCount);
-      const output = normalizeOutput(errorText).split("\n").slice(-5).join("\n");
+      const output = normalizeOutput(errorText)
+        .split("\n")
+        .slice(-5)
+        .join("\n");
       const outputLines = formatOutputLines(
         output,
         theme,
@@ -252,8 +255,10 @@ function formatBashResult(
 
       return [
         commandLine,
-        theme.fg(getResultSymbolColor(state), outputLines.text ? "├─ " : "└─ ") +
-          summary,
+        theme.fg(
+          getResultSymbolColor(state),
+          outputLines.text ? "├─ " : "└─ ",
+        ) + summary,
         outputLines.text,
       ]
         .filter((line): line is string => Boolean(line))

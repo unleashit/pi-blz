@@ -42,7 +42,7 @@ function shimmerText(
   return out;
 }
 
-function assembleRunDuration(start: number): string {
+export function assembleRunDuration(start: number): string {
   const duration = Date.now() - start;
   const totalSeconds = Math.round(duration / 1000);
   const hours = Math.floor(totalSeconds / 3600);

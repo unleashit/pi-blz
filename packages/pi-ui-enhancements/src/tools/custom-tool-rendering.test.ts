@@ -1,0 +1,115 @@
+import { describe, expect, it, beforeEach, afterEach } from "bun:test";
+import { ExtensionRunner } from "@earendil-works/pi-coding-agent";
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { patchCustomToolRendering } from "./custom-tool-rendering";
+import {
+  cleanRunnerProto,
+  PATCH_REF_COUNT,
+  PROTOTYPE_PATCHED,
+} from "../test-helpers";
+
+beforeEach(cleanRunnerProto);
+afterEach(cleanRunnerProto);
+
+const proto = ExtensionRunner.prototype as unknown as Record<
+  string | symbol,
+  unknown
+>;
+
+function mkRegisteredTool(name: string) {
+  const def: ToolDefinition = {
+    name,
+    label: name,
+    description: `test ${name}`,
+    parameters: {} as any,
+    execute: async () => ({ content: [], details: undefined }),
+  };
+  return { definition: def, sourceInfo: undefined };
+}
+
+describe("patchCustomToolRendering", () => {
+  it("wraps non-builtin tools", () => {
+    proto.getAllRegisteredTools = function () {
+      return [mkRegisteredTool("myTool")];
+    };
+
+    const handle = patchCustomToolRendering();
+    const tools = (proto.getAllRegisteredTools as Function).call(
+      {} as any,
+    ) as unknown[];
+
+    expect(
+      (tools[0] as { definition: { renderShell?: string } }).definition
+        .renderShell,
+    ).toBe("self");
+    handle.dispose();
+  });
+
+  it("does not wrap built-in tools", () => {
+    const tool = mkRegisteredTool("read");
+    proto.getAllRegisteredTools = function () {
+      return [tool];
+    };
+
+    patchCustomToolRendering();
+    const tools = (proto.getAllRegisteredTools as Function).call(
+      {} as any,
+    ) as unknown[];
+
+    expect((tools[0] as typeof tool).definition).toBe(tool.definition);
+  });
+
+  it("does not double-wrap already wrapped tools", () => {
+    const tool = mkRegisteredTool("myTool");
+    proto.getAllRegisteredTools = function () {
+      return [tool];
+    };
+
+    patchCustomToolRendering();
+    const getter = proto.getAllRegisteredTools as Function;
+    const first = getter.call({} as any) as unknown[];
+    const second = getter.call({} as any) as unknown[];
+
+    // definition-level cache: same wrapped definition reused
+    expect((first[0] as { definition: unknown }).definition).toBe(
+      (second[0] as { definition: unknown }).definition,
+    );
+  });
+
+  it("dispose restores original prototype method", () => {
+    const original = function () {
+      return [];
+    };
+    proto.getAllRegisteredTools = original;
+
+    const handle = patchCustomToolRendering();
+    expect(proto.getAllRegisteredTools).not.toBe(original);
+
+    handle.dispose();
+    expect(proto.getAllRegisteredTools).toBe(original);
+  });
+
+  it("reference counting keeps patch until final dispose", () => {
+    const original = function () {
+      return [mkRegisteredTool("myTool")];
+    };
+    proto.getAllRegisteredTools = original;
+
+    const h1 = patchCustomToolRendering();
+    const h2 = patchCustomToolRendering();
+
+    // Both active — still patched
+    expect(proto.getAllRegisteredTools).not.toBe(original);
+    expect(proto[PATCH_REF_COUNT]).toBe(2);
+
+    // Dispose first — still patched
+    h1.dispose();
+    expect(proto.getAllRegisteredTools).not.toBe(original);
+    expect(proto[PATCH_REF_COUNT]).toBe(1);
+
+    // Dispose second — restored
+    h2.dispose();
+    expect(proto.getAllRegisteredTools).toBe(original);
+    expect(proto[PROTOTYPE_PATCHED]).toBeUndefined();
+  });
+});
