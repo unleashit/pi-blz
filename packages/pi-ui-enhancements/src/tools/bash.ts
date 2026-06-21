@@ -218,6 +218,48 @@ function formatBashResult(
         .join("\n");
     }
 
+    const errorText = normalizeBashErrorText(textContent);
+    const lineCount = countLines(errorText);
+
+    if (lineCount > 1) {
+      const visibleLineCount = Math.min(lineCount, 5);
+      const remainingLines = Math.max(0, lineCount - visibleLineCount);
+      const output = normalizeOutput(errorText).split("\n").slice(-5).join("\n");
+      const outputLines = formatOutputLines(
+        output,
+        theme,
+        state,
+        "error",
+        getOutputWidth(),
+        true,
+      );
+      const { parts, needsHint } = buildBashMetadataParts(
+        {
+          durationSummary,
+          remainingLines,
+          callTruncated: state.callTruncated,
+          lineTruncated: outputLines.truncated,
+          toolTruncated: details?.truncation?.truncated === true,
+          expanded: options.expanded,
+        },
+        theme,
+      );
+      const summaryParts = durationSummary
+        ? [parts[0]!, theme.fg("error", "error"), ...parts.slice(1)]
+        : [theme.fg("error", "error"), ...parts];
+      const summary =
+        summaryParts.join(theme.fg("muted", ", ")) + (needsHint ? hint : "");
+
+      return [
+        commandLine,
+        theme.fg(getResultSymbolColor(state), outputLines.text ? "├─ " : "└─ ") +
+          summary,
+        outputLines.text,
+      ]
+        .filter((line): line is string => Boolean(line))
+        .join("\n");
+    }
+
     const prefix = durationSummary ? `${durationSummary}, ` : "";
     const suffix = errorBody.truncated || state.callTruncated ? hint : "";
     return (
