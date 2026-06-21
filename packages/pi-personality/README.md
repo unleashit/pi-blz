@@ -2,19 +2,17 @@
 
 Switchable communication styles for [pi](https://pi.dev), inspired by Codex CLI's `/personality` command.
 
-**Current version:** 0.2.1
+**Current version:** 0.2.2
 
 ## Why This Matters
 
-From OpenAI's [Codex Prompting Guide](https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide):
+Personality shapes how pi communicates with you: word choice, warmth, how eagerly it explains things, and how it raises concerns. It is intended to steer tone and collaboration posture, not task execution.
 
-> Personality is the higher-level vibe and collaboration posture that sits above preamble mechanics. It affects word choice, how eagerly the model explains tradeoffs, and how much warmth it brings to the interaction.
-
-Personality does not change tool-calling behavior, code quality, or reasoning depth. It calibrates the collaboration experience: how the agent communicates progress, raises concerns, and presents results. For interactive pair-programming, this matters. For headless runs, it does not.
+The personality text is wrapped in a scoping instruction telling the model to apply it only to communication style. In practice, the containment is not perfect — evaluation runs show that different personalities can produce different tool-calling patterns, different architectural choices, and different levels of verbosity. The effect varies by model and prompt. Treat personality as a dial that primarily affects communication style but may have secondary effects on how the agent approaches problems.
 
 ## Overview
 
-This extension adds a `/personality` command that lets you pick a communication style for pi. The chosen personality is appended to the system prompt under an explicit scoping instruction, ensuring it steers only the model's tone, escalation style, and collaboration posture — never task execution, code quality, or technical decisions.
+This extension adds a `/personality` command that lets you pick a communication style for pi. The chosen personality is appended to the system prompt.
 
 ### Included Personalities
 
@@ -65,6 +63,7 @@ Type `/personality` in pi to open the style picker. Select a personality and it 
 - **Mutates the system prompt.** The personality text is appended to the existing system prompt via the `before_agent_start` hook. This adds ~500-800 tokens to the context window (or zero with **None**).
 - **File changes require reload.** If you edit a personality `.md` file while pi is running, the extension will not pick up the changes until you `/reload` or switch to a different personality and back.
 - **Beware of untrusted prompts.** Custom personalities are injected directly into the system prompt. If you install personalities from unknown sources, review their content first; a malicious prompt could steer the agent's behavior in unintended ways.
+- **Personality can affect more than tone.** The scoping instruction is not fully enforced — personality may influence tool-calling patterns, architectural decisions, and verbosity beyond just communication style.
 
 ## Persistence
 
