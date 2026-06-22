@@ -53,6 +53,9 @@ function mkCtx(overrides?: Partial<ExtensionContext>) {
       setFooter: overrides?.ui?.setFooter ?? (() => {}),
       setWorkingIndicator: overrides?.ui?.setWorkingIndicator ?? (() => {}),
       setWorkingMessage: overrides?.ui?.setWorkingMessage ?? (() => {}),
+      setHeader: overrides?.ui?.setHeader ?? (() => {}),
+      setHiddenThinkingLabel:
+        overrides?.ui?.setHiddenThinkingLabel ?? (() => {}),
       theme: {
         fg: () => "",
         getFgAnsi: () => "",
@@ -129,6 +132,8 @@ describe("extension lifecycle", () => {
         setFooter: () => {},
         setWorkingIndicator: () => {},
         setWorkingMessage: () => {},
+        setHeader: () => {},
+        setHiddenThinkingLabel: () => {},
         theme: {
           fg: () => "",
           getFgAnsi: () => "",
