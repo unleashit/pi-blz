@@ -1,6 +1,5 @@
 import type {
   ExtensionAPI,
-  ExtensionContext,
   ToolRenderResultOptions,
   Theme,
   BashToolDetails,
@@ -9,7 +8,10 @@ import { createBashTool } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
 import { TOOL_PROMPTS } from "./tool-prompts";
-import { registerPatchedTool } from "./tool-registration";
+import {
+  createCwdDeferredTool,
+  registerPatchedTool,
+} from "./tool-registration";
 import {
   type BaseRenderState,
   MAX_CALL_WIDTH,
@@ -387,8 +389,8 @@ function formatBashResult(
     .join("\n");
 }
 
-export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
-  const tool = createBashTool(ctx.cwd);
+export function patchBashTool(pi: ExtensionAPI): Handle {
+  const tool = createCwdDeferredTool(createBashTool);
 
   return registerPatchedTool({
     pi,
@@ -396,13 +398,14 @@ export function patchBashTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
     name: "bash",
     label: "bash",
     promptSnippet: TOOL_PROMPTS.bash.promptSnippet,
-    async execute(toolCallId, params, signal, onUpdate) {
+    async execute(toolCallId, params, signal, onUpdate, ctx) {
       const startedAt = Date.now();
       const result = await tool.execute(
         toolCallId,
         params as BashToolInput,
         signal,
         onUpdate,
+        ctx,
       );
       const details = (result.details ?? {}) as BashDetailsWithTiming;
 

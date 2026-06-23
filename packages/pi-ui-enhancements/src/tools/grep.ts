@@ -1,6 +1,5 @@
 import type {
   ExtensionAPI,
-  ExtensionContext,
   GrepToolDetails,
   GrepToolInput,
 } from "@earendil-works/pi-coding-agent";
@@ -8,7 +7,10 @@ import { createGrepTool } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
 import { TOOL_PROMPTS } from "./tool-prompts";
-import { registerPatchedTool } from "./tool-registration";
+import {
+  createCwdDeferredTool,
+  registerPatchedTool,
+} from "./tool-registration";
 import {
   type BaseRenderState,
   type ListResultConfig,
@@ -36,8 +38,8 @@ const GREP_CONFIG: ListResultConfig = {
   },
 };
 
-export function patchGrepTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
-  const tool = createGrepTool(ctx.cwd);
+export function patchGrepTool(pi: ExtensionAPI): Handle {
+  const tool = createCwdDeferredTool(createGrepTool);
 
   return registerPatchedTool({
     pi,

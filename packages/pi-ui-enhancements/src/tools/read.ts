@@ -9,7 +9,6 @@ import {
 import { getPackageDir } from "@earendil-works/pi-coding-agent";
 import type {
   ExtensionAPI,
-  ExtensionContext,
   ToolRenderResultOptions,
   ReadToolDetails,
   Theme,
@@ -19,7 +18,10 @@ import { createReadTool } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
 import { TOOL_PROMPTS } from "./tool-prompts";
-import { registerPatchedTool } from "./tool-registration";
+import {
+  createCwdDeferredTool,
+  registerPatchedTool,
+} from "./tool-registration";
 import {
   type BaseRenderState,
   MAX_CALL_WIDTH,
@@ -192,8 +194,8 @@ function formatReadResult(
   return theme.fg(getResultSymbolColor(state), "└─ ") + output;
 }
 
-export function patchReadTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
-  const tool = createReadTool(ctx.cwd);
+export function patchReadTool(pi: ExtensionAPI): Handle {
+  const tool = createCwdDeferredTool(createReadTool);
 
   return registerPatchedTool({
     pi,

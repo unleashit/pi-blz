@@ -7,6 +7,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { getConfig } from "./config";
 import type { Handle } from "./types";
 
 type BorderFn = (c: string) => string;
@@ -21,25 +22,46 @@ export function formatTokens(count: number): string {
 function getTotalUsage(ctx: ExtensionContext): {
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  totalCost: number;
 } {
-  let inputTokens = 0,
-    outputTokens = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cacheReadTokens = 0;
+  let cacheWriteTokens = 0;
+  let totalCost = 0;
+
   for (const entry of ctx.sessionManager.getEntries()) {
     if (entry.type === "message" && entry.message.role === "assistant") {
-      inputTokens += entry.message.usage.input;
-      outputTokens += entry.message.usage.output;
+      const usage = entry.message.usage;
+      inputTokens += usage.input;
+      outputTokens += usage.output;
+      cacheReadTokens += usage.cacheRead ?? 0;
+      cacheWriteTokens += usage.cacheWrite ?? 0;
+      totalCost += usage.cost?.total ?? 0;
     }
   }
 
-  return { inputTokens, outputTokens };
+  return {
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    totalCost,
+  };
 }
 
 export function registerRoundedEditor(
   pi: ExtensionAPI,
   ctx: ExtensionContext,
 ): Handle {
+  let gitBranchProvider: (() => string | null) | null = null;
+  const getGitBranch = (): string | null => gitBranchProvider?.() ?? null;
+
   // Render only extension statuses
   ctx.ui.setFooter((_tui, _theme, footerData) => {
+    gitBranchProvider = () => footerData.getGitBranch();
     const statuses = footerData.getExtensionStatuses();
     return {
       render(width: number): string[] {
@@ -52,7 +74,7 @@ export function registerRoundedEditor(
   });
 
   ctx.ui.setEditorComponent((tui, theme, kb) => {
-    return new RoundedEditor(tui, theme, kb, ctx, pi);
+    return new RoundedEditor(tui, theme, kb, ctx, pi, getGitBranch);
   });
 
   return {
@@ -70,6 +92,7 @@ class RoundedEditor extends CustomEditor {
     kb: KeybindingsManager,
     private ctx: ExtensionContext,
     private pi: ExtensionAPI,
+    private getGitBranch: () => string | null,
   ) {
     super(tui, theme, kb, { paddingX: 0 });
   }
@@ -84,11 +107,32 @@ class RoundedEditor extends CustomEditor {
     const pct =
       pctValue != null ? `${pctValue.toFixed(1)}%/${modelCW}` : `?%/${modelCW}`;
 
+    // Thinking level indicator (only shown if model supports reasoning effort)
+    const rawLevel = this.pi.getThinkingLevel();
+    let thinkingLevel: string | null = null;
+    if (
+      getConfig().roundedEditorShowThinkingLevel &&
+      this.ctx.model?.reasoning &&
+      rawLevel &&
+      rawLevel !== "off"
+    ) {
+      const map = this.ctx.model.thinkingLevelMap;
+      // Show only if model has a thinkingLevelMap and the level isn't explicitly unsupported
+      if (map && map[rawLevel] !== null) {
+        thinkingLevel = rawLevel;
+      }
+    }
+
     let cwd = this.ctx.cwd;
     const home = process.env.HOME ?? process.env.USERPROFILE;
     if (home && cwd.startsWith(home)) cwd = `~${cwd.slice(home.length)}`;
 
-    return { modelId, pct, pctValue, cwd };
+    const branch = getConfig().roundedEditorShowBranch
+      ? this.getGitBranch()
+      : null;
+    if (branch) cwd = `${cwd} (${branch})`;
+
+    return { modelId, pct, pctValue, thinkingLevel, cwd };
   }
 
   private buildTopLine(width: number, cwd: string, border: BorderFn): string {
@@ -100,35 +144,57 @@ class RoundedEditor extends CustomEditor {
   private buildBottomLine(
     width: number,
     modelId: string,
+    thinkingLevel: string | null,
     pct: string,
     pctValue: number | null,
     inputTokens: number,
     outputTokens: number,
+    cacheReadTokens: number,
+    cacheWriteTokens: number,
+    totalCost: number,
     border: BorderFn,
   ): string {
-    const bottomLeft = ` ${this.ctx.ui.theme.fg("text", modelId)} `;
+    const theme = this.ctx.ui.theme;
+    const parts: string[] = [theme.fg("text", modelId)];
+
+    if (thinkingLevel) {
+      parts.push(theme.fg("text", `(${thinkingLevel})`));
+    }
+
+    const bottomLeft = ` ${parts.join(" ")} `;
 
     let coloredPct: string;
 
     // pi's default behaviour
     if (pctValue !== null && pctValue > 90) {
-      coloredPct = this.ctx.ui.theme.fg("error", pct);
+      coloredPct = theme.fg("error", pct);
     } else if (pctValue !== null && pctValue > 70) {
-      coloredPct = this.ctx.ui.theme.fg("warning", pct);
+      coloredPct = theme.fg("warning", pct);
     } else {
-      coloredPct = this.ctx.ui.theme.fg("text", pct);
+      coloredPct = theme.fg("text", pct);
     }
 
-    let usageStr = "";
+    const stats: string[] = [];
 
-    if (inputTokens > 0 && outputTokens > 0) {
-      usageStr = this.ctx.ui.theme.fg(
-        "text",
-        ` ↑${formatTokens(inputTokens)} ↓${formatTokens(outputTokens)}`,
-      );
+    if (inputTokens > 0) {
+      stats.push(theme.fg("accent", `↑${formatTokens(inputTokens)}`));
     }
+    if (outputTokens > 0) {
+      stats.push(theme.fg("accent", `↓${formatTokens(outputTokens)}`));
+    }
+    const cfg = getConfig();
+    if (cfg.roundedEditorShowCacheTokens && cacheReadTokens > 0) {
+      stats.push(theme.fg("accent", `R${formatTokens(cacheReadTokens)}`));
+    }
+    if (cfg.roundedEditorShowCacheTokens && cacheWriteTokens > 0) {
+      stats.push(theme.fg("accent", `W${formatTokens(cacheWriteTokens)}`));
+    }
+    if (cfg.roundedEditorShowCost && totalCost > 0) {
+      stats.push(theme.fg("accent", `$${totalCost.toFixed(1)}`));
+    }
+    stats.push(coloredPct);
 
-    const bottomRight = `${usageStr} ${coloredPct} `;
+    const bottomRight = ` ${stats.join(" ")} `;
     const bw = visibleWidth(bottomLeft);
     const rw = visibleWidth(bottomRight);
     const botGap = Math.max(1, width - 4 - bw - rw);
@@ -166,8 +232,15 @@ class RoundedEditor extends CustomEditor {
   }
 
   override render(width: number): string[] {
-    const { inputTokens, outputTokens } = getTotalUsage(this.ctx);
-    const { modelId, pct, pctValue, cwd } = this.buildStatusInfo();
+    const {
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      totalCost,
+    } = getTotalUsage(this.ctx);
+    const { modelId, pct, pctValue, thinkingLevel, cwd } =
+      this.buildStatusInfo();
 
     const innerWidth = Math.max(1, width - 2);
     const lines = super.render(innerWidth);
@@ -178,9 +251,11 @@ class RoundedEditor extends CustomEditor {
 
     const border = isBashMode
       ? this.ctx.ui.theme.getBashModeBorderColor()
-      : this.ctx.ui.theme.getThinkingBorderColor(
-          this.pi.getThinkingLevel() ?? "off",
-        );
+      : getConfig().roundedEditorColorizeThinking
+        ? this.ctx.ui.theme.getThinkingBorderColor(
+            this.pi.getThinkingLevel() ?? "off",
+          )
+        : this.ctx.ui.theme.getThinkingBorderColor("medium");
 
     // Top line
     lines[0] = this.buildTopLine(width, cwd, border);
@@ -193,10 +268,14 @@ class RoundedEditor extends CustomEditor {
       this.buildBottomLine(
         width,
         modelId,
+        thinkingLevel,
         pct,
         pctValue,
         inputTokens,
         outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        totalCost,
         border,
       ),
     );

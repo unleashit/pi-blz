@@ -1,13 +1,15 @@
 import type {
   ExtensionAPI,
-  ExtensionContext,
   LsToolInput,
 } from "@earendil-works/pi-coding-agent";
 import { createLsTool } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
 import { TOOL_PROMPTS } from "./tool-prompts";
-import { registerPatchedTool } from "./tool-registration";
+import {
+  createCwdDeferredTool,
+  registerPatchedTool,
+} from "./tool-registration";
 import {
   type BaseRenderState,
   type ListResultConfig,
@@ -34,8 +36,8 @@ const LS_CONFIG: ListResultConfig = {
     item.endsWith("/") ? theme.fg("success", item) : item,
 };
 
-export function patchLsTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
-  const tool = createLsTool(ctx.cwd);
+export function patchLsTool(pi: ExtensionAPI): Handle {
+  const tool = createCwdDeferredTool(createLsTool);
 
   return registerPatchedTool({
     pi,

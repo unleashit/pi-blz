@@ -1,13 +1,15 @@
 import type {
   ExtensionAPI,
-  ExtensionContext,
   FindToolInput,
 } from "@earendil-works/pi-coding-agent";
 import { createFindTool } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Handle } from "../types";
 import { TOOL_PROMPTS } from "./tool-prompts";
-import { registerPatchedTool } from "./tool-registration";
+import {
+  createCwdDeferredTool,
+  registerPatchedTool,
+} from "./tool-registration";
 import {
   type BaseRenderState,
   type ListResultConfig,
@@ -32,8 +34,8 @@ const FIND_CONFIG: ListResultConfig = {
   },
 };
 
-export function patchFindTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
-  const tool = createFindTool(ctx.cwd);
+export function patchFindTool(pi: ExtensionAPI): Handle {
+  const tool = createCwdDeferredTool(createFindTool);
 
   return registerPatchedTool({
     pi,

@@ -4,7 +4,6 @@ import {
   highlightCode,
   getLanguageFromPath,
   type ExtensionAPI,
-  type ExtensionContext,
   type ToolRenderResultOptions,
   type WriteToolInput,
 } from "@earendil-works/pi-coding-agent";
@@ -26,7 +25,10 @@ import {
 } from "./tool-rendering";
 import type { Handle } from "../types";
 import { TOOL_PROMPTS } from "./tool-prompts";
-import { registerPatchedTool } from "./tool-registration";
+import {
+  createCwdDeferredTool,
+  registerPatchedTool,
+} from "./tool-registration";
 
 function formatWriteResult(
   result: { content: Array<{ type: string; text?: string }> },
@@ -84,11 +86,8 @@ function formatWriteResult(
   );
 }
 
-export function patchWriteTool(
-  pi: ExtensionAPI,
-  ctx: ExtensionContext,
-): Handle {
-  const tool = createWriteTool(ctx.cwd);
+export function patchWriteTool(pi: ExtensionAPI): Handle {
+  const tool = createCwdDeferredTool(createWriteTool);
 
   return registerPatchedTool({
     pi,

@@ -11,7 +11,11 @@ import { getConfig, loadConfig } from "./config";
 let handles: Handle[] = [];
 
 export default function (pi: ExtensionAPI) {
-  let customToolRenderingHandle: Handle | null = null;
+  handles = patchTools(pi);
+  loadConfig();
+  let customToolRenderingHandle: Handle | null = getConfig().patchCustomTools
+    ? patchCustomToolRendering()
+    : null;
 
   pi.on("session_start", async (_event, ctx) => {
     loadConfig((err) => {
@@ -21,15 +25,19 @@ export default function (pi: ExtensionAPI) {
       );
     });
 
-    if (getConfig().patchCustomTools) {
+    // Apply config changes made before session start while keeping the patch early
+    // enough for history rendering after /reload
+    if (getConfig().patchCustomTools && !customToolRenderingHandle) {
       customToolRenderingHandle = patchCustomToolRendering();
+    } else if (!getConfig().patchCustomTools && customToolRenderingHandle) {
+      customToolRenderingHandle.dispose();
+      customToolRenderingHandle = null;
     }
 
     // Capture tools that were already active (e.g. from other extensions)
     // before we override the list with our built-in set
     const prePatchActive = new Set(pi.getActiveTools());
 
-    handles = patchTools(pi, ctx);
     const builtInTools = [
       "read",
       "write",

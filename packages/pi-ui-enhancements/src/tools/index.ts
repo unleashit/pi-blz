@@ -1,7 +1,4 @@
-import type {
-  ExtensionAPI,
-  ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Handle } from "../types";
 import { patchBashTool } from "./bash";
 import { patchLsTool } from "./ls";
@@ -11,14 +8,14 @@ import { patchReadTool } from "./read";
 import { patchWriteTool } from "./write";
 import { patchEditTool } from "./edit";
 
-export function patchTools(pi: ExtensionAPI, ctx: ExtensionContext): Handle[] {
+export function patchTools(pi: ExtensionAPI): Handle[] {
   return [
-    patchReadTool(pi, ctx),
-    patchLsTool(pi, ctx),
-    patchFindTool(pi, ctx),
-    patchGrepTool(pi, ctx),
-    patchWriteTool(pi, ctx),
-    patchBashTool(pi, ctx),
-    patchEditTool(pi, ctx),
+    patchReadTool(pi),
+    patchLsTool(pi),
+    patchFindTool(pi),
+    patchGrepTool(pi),
+    patchWriteTool(pi),
+    patchBashTool(pi),
+    patchEditTool(pi),
   ];
 }

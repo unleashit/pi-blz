@@ -5,11 +5,13 @@ import {
   type EditToolDetails,
   type EditToolInput,
   type ExtensionAPI,
-  type ExtensionContext,
   type ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
 import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
-import { registerPatchedTool } from "./tool-registration";
+import {
+  createCwdDeferredTool,
+  registerPatchedTool,
+} from "./tool-registration";
 import type { Handle } from "../types";
 import { TOOL_PROMPTS } from "./tool-prompts";
 import {
@@ -99,8 +101,8 @@ function formatEditResult(
     .join("\n");
 }
 
-export function patchEditTool(pi: ExtensionAPI, ctx: ExtensionContext): Handle {
-  const tool = createEditTool(ctx.cwd);
+export function patchEditTool(pi: ExtensionAPI): Handle {
+  const tool = createCwdDeferredTool(createEditTool);
 
   return registerPatchedTool({
     pi,

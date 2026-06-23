@@ -25,6 +25,11 @@ export interface Config {
   maxExpandedEntries: number;
 
   // Editor
+  roundedEditorColorizeThinking: boolean;
+  roundedEditorShowThinkingLevel: boolean;
+  roundedEditorShowCacheTokens: boolean;
+  roundedEditorShowCost: boolean;
+  roundedEditorShowBranch: boolean;
   hiddenThinkingLabel: string;
 }
 
@@ -38,8 +43,13 @@ const defaultConfig: Config = {
   workingIndicatorShowDuration: true,
   patchCustomTools: true,
   maxCallWidth: 80,
-  maxExpandedEntries: 20,
   hiddenThinkingLabel: "(think)",
+  roundedEditorColorizeThinking: true,
+  roundedEditorShowThinkingLevel: true,
+  roundedEditorShowCacheTokens: false,
+  roundedEditorShowCost: false,
+  roundedEditorShowBranch: true,
+  maxExpandedEntries: 20,
 };
 
 const ConfigSchema = Type.Object(
@@ -58,6 +68,11 @@ const ConfigSchema = Type.Object(
     patchCustomTools: Type.Boolean(),
     maxCallWidth: Type.Number({ minimum: 40, maximum: 200 }),
     maxExpandedEntries: Type.Number({ minimum: -1, maximum: 100 }),
+    roundedEditorColorizeThinking: Type.Boolean(),
+    roundedEditorShowThinkingLevel: Type.Boolean(),
+    roundedEditorShowCacheTokens: Type.Boolean(),
+    roundedEditorShowCost: Type.Boolean(),
+    roundedEditorShowBranch: Type.Boolean(),
     hiddenThinkingLabel: Type.String({ minLength: 1 }),
   },
   { additionalProperties: false },
@@ -156,6 +171,16 @@ function parseConfigValue(id: ConfigKey, value: string): Config[ConfigKey] {
       return Number(value);
     case "maxExpandedEntries":
       return Number(value);
+    case "roundedEditorColorizeThinking":
+      return value === "true";
+    case "roundedEditorShowThinkingLevel":
+      return value === "true";
+    case "roundedEditorShowCacheTokens":
+      return value === "true";
+    case "roundedEditorShowCost":
+      return value === "true";
+    case "roundedEditorShowBranch":
+      return value === "true";
     case "hiddenThinkingLabel":
       return value;
   }

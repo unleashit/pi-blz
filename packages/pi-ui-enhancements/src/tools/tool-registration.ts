@@ -10,6 +10,21 @@ type BaseTool = {
   execute: NonNullable<ToolRegistration["execute"]>;
 };
 
+export function createCwdDeferredTool(
+  createTool: (cwd: string) => BaseTool,
+): BaseTool {
+  const meta = createTool(process.cwd());
+  const execute: BaseTool["execute"] = (
+    toolCallId,
+    params,
+    signal,
+    onUpdate,
+    ctx,
+  ) => createTool(ctx.cwd).execute(toolCallId, params, signal, onUpdate, ctx);
+
+  return { ...meta, execute };
+}
+
 export function registerPatchedTool(config: {
   pi: ExtensionAPI;
   tool: BaseTool;
