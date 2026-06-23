@@ -20,6 +20,7 @@ export interface Config {
   workingIndicatorShowDuration: boolean;
 
   // Tool rendering
+  patchCustomTools: boolean;
   maxCallWidth: number;
   maxExpandedEntries: number;
 
@@ -35,6 +36,7 @@ const defaultConfig: Config = {
   asciiHeaderShowVersion: true,
   workingIndicatorShowInterruptMsg: true,
   workingIndicatorShowDuration: true,
+  patchCustomTools: true,
   maxCallWidth: 80,
   maxExpandedEntries: 20,
   hiddenThinkingLabel: "(think)",
@@ -53,6 +55,7 @@ const ConfigSchema = Type.Object(
     asciiHeaderShowVersion: Type.Boolean(),
     workingIndicatorShowInterruptMsg: Type.Boolean(),
     workingIndicatorShowDuration: Type.Boolean(),
+    patchCustomTools: Type.Boolean(),
     maxCallWidth: Type.Number({ minimum: 40, maximum: 200 }),
     maxExpandedEntries: Type.Number({ minimum: -1, maximum: 100 }),
     hiddenThinkingLabel: Type.String({ minLength: 1 }),
@@ -146,6 +149,8 @@ function parseConfigValue(id: ConfigKey, value: string): Config[ConfigKey] {
     case "workingIndicatorShowInterruptMsg":
       return value === "true";
     case "workingIndicatorShowDuration":
+      return value === "true";
+    case "patchCustomTools":
       return value === "true";
     case "maxCallWidth":
       return Number(value);

@@ -11,7 +11,7 @@ import { getConfig, loadConfig } from "./config";
 let handles: Handle[] = [];
 
 export default function (pi: ExtensionAPI) {
-  const customToolRenderingHandle = patchCustomToolRendering();
+  let customToolRenderingHandle: Handle | null = null;
 
   pi.on("session_start", async (_event, ctx) => {
     loadConfig((err) => {
@@ -20,6 +20,10 @@ export default function (pi: ExtensionAPI) {
         "error",
       );
     });
+
+    if (getConfig().patchCustomTools) {
+      customToolRenderingHandle = patchCustomToolRendering();
+    }
 
     // Capture tools that were already active (e.g. from other extensions)
     // before we override the list with our built-in set
@@ -53,6 +57,7 @@ export default function (pi: ExtensionAPI) {
       h.dispose();
     }
     handles = [];
-    customToolRenderingHandle.dispose();
+    customToolRenderingHandle?.dispose();
+    customToolRenderingHandle = null;
   });
 }
