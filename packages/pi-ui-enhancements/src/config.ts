@@ -1,11 +1,11 @@
-import { homedir } from "node:os";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import figlet from "figlet";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Compile } from "typebox/compile";
 
-const CONFIG_PATH = join(homedir(), ".pi", "agent", "ui-settings.json");
+const CONFIG_PATH = join(getAgentDir(), "ui-settings.json");
 
 export interface Config {
   // ASCII header
