@@ -72,7 +72,8 @@ export function patchFindTool(pi: ExtensionAPI): Handle {
         patternBudget = Math.max(MIN_PATTERN, remaining - pathBudget);
       }
 
-      const rawPattern = renderArgs.pattern;
+      const rawPattern =
+        typeof renderArgs.pattern === "string" ? renderArgs.pattern : "...";
       const patternDisplay =
         visibleWidth(rawPattern) > patternBudget
           ? truncateToWidth(rawPattern, patternBudget, "...")

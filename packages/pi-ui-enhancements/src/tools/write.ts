@@ -19,6 +19,7 @@ import {
   getResultText,
   invalidateIfChanged,
   MAX_CALL_WIDTH,
+  MAX_EXPANDED_ENTRIES,
   renderPath,
   updateResultState,
   type BaseRenderState,
@@ -50,12 +51,19 @@ function formatWriteResult(
 
   if (options.expanded) {
     const lang = getLanguageFromPath(args.path);
-    const previewText = args.content.split("\n").slice(0, 20).join("\n");
+    const maxPreviewLines = MAX_EXPANDED_ENTRIES();
+    const previewLineCount = Number.isFinite(maxPreviewLines)
+      ? maxPreviewLines
+      : Infinity;
+    const previewText = args.content
+      .split("\n")
+      .slice(0, previewLineCount)
+      .join("\n");
     const highlightedLines = highlightCode(
       previewText.endsWith("\n") ? previewText.slice(0, -1) : previewText,
       lang,
     );
-    const remainingLines = Math.max(0, lines - 20);
+    const remainingLines = Math.max(0, lines - previewLineCount);
 
     const renderedLines = highlightedLines.map((line, index) => {
       const isLastLine = index === highlightedLines.length - 1;

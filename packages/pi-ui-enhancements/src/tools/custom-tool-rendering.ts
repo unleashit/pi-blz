@@ -335,39 +335,47 @@ function wrapDefinition<T extends ToolDefinition>(definition: T): T {
       const { text, prefix } = getCallRenderParts(state, theme, toolCtx);
 
       if (originalRenderCall) {
-        const inner = originalRenderCall(args, theme, {
-          ...toolCtx,
-          lastComponent: state.callComponent,
-        });
-        state.callComponent = inner;
+        try {
+          const inner = originalRenderCall(args, theme, {
+            ...toolCtx,
+            lastComponent: state.callComponent,
+          });
+          state.callComponent = inner;
 
-        const innerText = inner
-          .render(MAX_CALL_WIDTH())
-          .map((line) => line.trimEnd())
-          .filter((line) => line.length > 0)
-          .join(" ");
-        const linkedInnerText = applyArgumentHyperlinks(
-          innerText,
-          args,
-          toolCtx.cwd,
-        );
-        text.setText(
-          safeTruncateToWidth(
-            prefix + linkedInnerText,
-            MAX_CALL_WIDTH(),
-            theme.fg("accent", "..."),
-          ),
-        );
-        return text;
+          const innerText = inner
+            .render(MAX_CALL_WIDTH())
+            .map((line) => line.trimEnd())
+            .filter((line) => line.length > 0)
+            .join(" ");
+          const linkedInnerText = applyArgumentHyperlinks(
+            innerText,
+            args,
+            toolCtx.cwd,
+          );
+          text.setText(
+            safeTruncateToWidth(
+              prefix + linkedInnerText,
+              MAX_CALL_WIDTH(),
+              theme.fg("accent", "..."),
+            ),
+          );
+          return text;
+        } catch {
+          state.callComponent = undefined;
+        }
       }
 
       text.setText(
-        prefix +
-          buildGenericCallHeader(
-            args as Record<string, unknown>,
-            definition.label,
-            theme,
-          ),
+        safeTruncateToWidth(
+          prefix +
+            buildGenericCallHeader(
+              args as Record<string, unknown>,
+              definition.label,
+              theme,
+            ),
+          MAX_CALL_WIDTH(),
+          theme.fg("accent", "..."),
+        ),
       );
       return text;
     },
@@ -375,7 +383,11 @@ function wrapDefinition<T extends ToolDefinition>(definition: T): T {
       const state = getCustomState(toolCtx.state);
       const text = getResultText(state, options, toolCtx.lastComponent);
 
+      const details = result.details as
+        | { truncation?: { truncated?: boolean } }
+        | undefined;
       const changed = updateResultState(state, {
+        truncated: details?.truncation?.truncated === true,
         isError: toolCtx.isError,
       });
       invalidateIfChanged(changed, toolCtx.invalidate);
@@ -467,6 +479,10 @@ export function patchCustomToolRendering(): Handle {
   }
 
   const original = proto.getAllRegisteredTools;
+  if (typeof original !== "function") {
+    return { dispose() {} };
+  }
+
   proto[PROTOTYPE_PATCHED] = true;
   proto[PATCH_REF_COUNT] = 1;
   proto[ORIGINAL_GET_ALL_TOOLS] = original;
@@ -474,7 +490,15 @@ export function patchCustomToolRendering(): Handle {
 
   const patchedGetAllRegisteredTools =
     function getAllRegisteredToolsWithUiPatch(this: ExtensionRunner) {
-      return original.call(this).map(wrapRegisteredTool);
+      const current = ExtensionRunner.prototype as PatchedRunnerPrototype;
+      const tools = original.call(this);
+      if ((current[PATCH_REF_COUNT] ?? 0) <= 0) {
+        return tools;
+      }
+      if (!Array.isArray(tools)) {
+        return tools;
+      }
+      return tools.map(wrapRegisteredTool);
     };
   proto[PATCHED_GET_ALL_TOOLS] = patchedGetAllRegisteredTools;
   proto.getAllRegisteredTools = patchedGetAllRegisteredTools;

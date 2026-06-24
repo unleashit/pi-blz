@@ -22,6 +22,8 @@ export type BaseRenderState = {
   truncated?: boolean;
   isError?: boolean;
   expanded?: boolean;
+  /** Captured blink phase shared between renderCall and renderResult */
+  blinkOn?: boolean;
 };
 
 export type ListResultConfig = {
@@ -66,9 +68,9 @@ export function isBlinkOn(): boolean {
   return Math.floor(Date.now() / BLINK_INTERVAL_MS) % 2 === 0;
 }
 
-export function getStatusSymbol(isDone: boolean): string {
+export function getStatusSymbol(isDone: boolean, blinkOn: boolean): string {
   if (isDone) return "●";
-  return isBlinkOn() ? "●" : "○";
+  return blinkOn ? "●" : "○";
 }
 
 export function getResultSymbolColor(
@@ -82,17 +84,18 @@ export function getResultSymbolColor(
 export function getStatusColor(
   isDone: boolean,
   state: BaseRenderState,
+  blinkOn: boolean,
 ): "success" | "warning" | "error" | "dim" {
   if (state.isError) return "error";
   if (state.truncated) return "warning";
 
-  if (!isDone) return isBlinkOn() ? "success" : "dim";
+  if (!isDone) return blinkOn ? "success" : "dim";
   return "success";
 }
 
 function shortenPath(filePath: string): string {
   const home = homedir();
-  return filePath.startsWith(home)
+  return filePath === home || filePath.startsWith(`${home}/`)
     ? `~${filePath.slice(home.length)}`
     : filePath;
 }
@@ -407,9 +410,13 @@ export function getCallRenderParts(
 
   updateBlinkTimer(state, !isDone, toolCtx.invalidate);
 
+  // Capture blink phase once so renderCall and renderResult stay in sync
+  const blinkOn = isBlinkOn();
+  state.blinkOn = blinkOn;
+
   const prefix = theme.fg(
-    getStatusColor(isDone, state),
-    `${getStatusSymbol(isDone)} `,
+    getStatusColor(isDone, state, blinkOn),
+    `${getStatusSymbol(isDone, blinkOn)} `,
   );
 
   return { text, prefix, isDone };

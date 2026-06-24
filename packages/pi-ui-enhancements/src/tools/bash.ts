@@ -428,9 +428,11 @@ export function patchBashTool(pi: ExtensionAPI): Handle {
       }
 
       let content = prefix;
+      const command =
+        typeof renderArgs.command === "string" ? renderArgs.command : "...";
       const commandPreview = toolCtx.expanded
-        ? renderArgs.command
-        : renderArgs.command.replace(/\s+/g, " ").trim();
+        ? command
+        : command.replace(/\s+/g, " ").trim();
       const timeoutSuffix = renderArgs.timeout
         ? theme.fg("muted", ` (timeout ${renderArgs.timeout}s)`)
         : "";
@@ -457,7 +459,7 @@ export function patchBashTool(pi: ExtensionAPI): Handle {
       content += commandDisplay;
       content += timeoutSuffix;
       state.callTruncated = commandTruncated;
-      state.fullCommand = renderArgs.command;
+      state.fullCommand = command;
       text.setText(content);
       return text;
     },
