@@ -24,6 +24,7 @@ function mkPi() {
     registerTool: (tool: { name: string }) => {
       registeredTools.push(tool.name);
     },
+    registerCommand: () => {},
     getActiveTools: () => [...activeTools],
     setActiveTools: (tools: string[]) => {
       activeToolsArg = tools;

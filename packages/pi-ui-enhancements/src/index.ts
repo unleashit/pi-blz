@@ -6,7 +6,8 @@ import { patchTools } from "./tools";
 import { patchCustomToolRendering } from "./tools/custom-tool-rendering";
 import type { Handle } from "./types";
 import { registerWorkingIndicator } from "./working-indicator";
-import { getConfig, loadConfig } from "./config";
+import { getConfig, loadConfig, setOnConfigChange } from "./config";
+import { registerConfigCommand } from "./settings-command";
 
 let handles: Handle[] = [];
 
@@ -17,7 +18,20 @@ export default function (pi: ExtensionAPI) {
     ? patchCustomToolRendering()
     : null;
 
+  let headerReregister: (() => void) | null = null;
+  let editorReregister: (() => void) | null = null;
+  let settingsUiActive = false;
+
+  setOnConfigChange(() => {
+    headerReregister?.();
+    if (!settingsUiActive) {
+      editorReregister?.();
+    }
+  });
+
   pi.on("session_start", async (_event, ctx) => {
+    // Reset in case settings UI was force-closed last session
+    settingsUiActive = false;
     loadConfig((err) => {
       ctx.ui.notify(
         `Config load failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -52,9 +66,18 @@ export default function (pi: ExtensionAPI) {
 
     if (ctx.hasUI) {
       handles.push(
-        registerAsciiHeader(pi, ctx),
-        registerRoundedEditor(pi, ctx),
+        registerAsciiHeader(pi, ctx, (fn) => {
+          headerReregister = fn;
+        }),
+        registerRoundedEditor(pi, ctx, (fn) => {
+          editorReregister = fn;
+        }),
         registerWorkingIndicator(pi, ctx),
+      );
+      registerConfigCommand(
+        pi,
+        () => { settingsUiActive = true; },
+        () => { settingsUiActive = false; },
       );
       ctx.ui.setHiddenThinkingLabel("(think)");
     }

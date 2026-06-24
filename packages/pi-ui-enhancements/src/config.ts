@@ -21,6 +21,7 @@ export const ALLOWED_FONTS = [
   "Larry 3D",
   "NV Script",
   "Nancyj",
+  "pi",
   "Poison",
   "Rebel",
   "Roman",
@@ -36,6 +37,7 @@ export interface Config {
   // ASCII header
   asciiHeaderEnabled: boolean;
   asciiHeaderFont: string;
+  asciiHeaderColor: "text" | "accent" | "dim";
   asciiHeaderAlign: "left" | "center" | "right";
   asciiHeaderShowVersion: boolean;
 
@@ -49,7 +51,7 @@ export interface Config {
   maxExpandedEntries: number;
 
   // Editor
-  roundedEditorColorizeThinking: boolean;
+  roundedEditorColor: "thinking" | "dim" | "muted";
   roundedEditorShowThinkingLevel: boolean;
   roundedEditorShowCacheTokens: boolean;
   roundedEditorShowCost: boolean;
@@ -59,24 +61,30 @@ export interface Config {
 const defaultConfig: Config = {
   asciiHeaderEnabled: true,
   asciiHeaderFont: "Larry 3D",
+  asciiHeaderColor: "text",
   asciiHeaderAlign: "center",
   asciiHeaderShowVersion: true,
   workingIndicatorShowInterruptMsg: true,
   workingIndicatorShowDuration: true,
   patchCustomTools: true,
   maxCallWidth: 80,
-  roundedEditorColorizeThinking: true,
+  maxExpandedEntries: 20,
+  roundedEditorColor: "thinking",
   roundedEditorShowThinkingLevel: true,
   roundedEditorShowCacheTokens: false,
   roundedEditorShowCost: false,
   roundedEditorShowBranch: true,
-  maxExpandedEntries: 20,
 };
 
 const ConfigSchema = Type.Object(
   {
     asciiHeaderEnabled: Type.Boolean(),
     asciiHeaderFont: Type.String({ minLength: 1 }),
+    asciiHeaderColor: Type.Union([
+      Type.Literal("text"),
+      Type.Literal("accent"),
+      Type.Literal("dim"),
+    ]),
     asciiHeaderAlign: Type.Union([
       Type.Literal("left"),
       Type.Literal("center"),
@@ -88,7 +96,11 @@ const ConfigSchema = Type.Object(
     patchCustomTools: Type.Boolean(),
     maxCallWidth: Type.Number({ minimum: 40, maximum: 200 }),
     maxExpandedEntries: Type.Number({ minimum: -1, maximum: 100 }),
-    roundedEditorColorizeThinking: Type.Boolean(),
+    roundedEditorColor: Type.Union([
+      Type.Literal("thinking"),
+      Type.Literal("dim"),
+      Type.Literal("muted"),
+    ]),
     roundedEditorShowThinkingLevel: Type.Boolean(),
     roundedEditorShowCacheTokens: Type.Boolean(),
     roundedEditorShowCost: Type.Boolean(),
@@ -98,6 +110,12 @@ const ConfigSchema = Type.Object(
 );
 
 export type ConfigKey = keyof Config;
+
+let onConfigChange: (() => void) | null = null;
+
+export function setOnConfigChange(callback: (() => void) | null): void {
+  onConfigChange = callback;
+}
 
 const validator = Compile(ConfigSchema);
 
@@ -115,7 +133,7 @@ function validateConfig(raw: unknown): Config {
 
   if (typed.asciiHeaderFont && !ALLOWED_FONTS.includes(typed.asciiHeaderFont)) {
     console.error(
-      `Invalid figlet font "${typed.asciiHeaderFont}", ` +
+      `Invalid font "${typed.asciiHeaderFont}", ` +
         `falling back to "${defaultConfig.asciiHeaderFont}"`,
     );
     typed.asciiHeaderFont = defaultConfig.asciiHeaderFont;
@@ -171,6 +189,8 @@ function parseConfigValue(id: ConfigKey, value: string): Config[ConfigKey] {
       return value === "true";
     case "asciiHeaderFont":
       return value;
+    case "asciiHeaderColor":
+      return value as Config["asciiHeaderColor"];
     case "asciiHeaderAlign":
       return value as Config["asciiHeaderAlign"];
     case "asciiHeaderShowVersion":
@@ -185,8 +205,8 @@ function parseConfigValue(id: ConfigKey, value: string): Config[ConfigKey] {
       return Number(value);
     case "maxExpandedEntries":
       return Number(value);
-    case "roundedEditorColorizeThinking":
-      return value === "true";
+    case "roundedEditorColor":
+      return value as Config["roundedEditorColor"];
     case "roundedEditorShowThinkingLevel":
       return value === "true";
     case "roundedEditorShowCacheTokens":
@@ -212,6 +232,8 @@ export function saveConfig(id: ConfigKey, value: string): void {
   mkdirSync(dirname(CONFIG_PATH), { recursive: true });
   writeFileSync(CONFIG_PATH, JSON.stringify(validated, null, 2));
   config = validated;
+
+  onConfigChange?.();
 }
 
 export function getConfig(): Config {

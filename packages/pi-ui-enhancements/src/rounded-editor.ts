@@ -55,6 +55,7 @@ function getTotalUsage(ctx: ExtensionContext): {
 export function registerRoundedEditor(
   pi: ExtensionAPI,
   ctx: ExtensionContext,
+  onReregister: (fn: () => void) => void,
 ): Handle {
   let gitBranchProvider: (() => string | null) | null = null;
   const getGitBranch = (): string | null => gitBranchProvider?.() ?? null;
@@ -73,9 +74,13 @@ export function registerRoundedEditor(
     };
   });
 
-  ctx.ui.setEditorComponent((tui, theme, kb) => {
-    return new RoundedEditor(tui, theme, kb, ctx, pi, getGitBranch);
-  });
+  function applyEditor() {
+    ctx.ui.setEditorComponent((tui, theme, kb) => {
+      return new RoundedEditor(tui, theme, kb, ctx, pi, getGitBranch);
+    });
+  }
+  applyEditor();
+  onReregister(applyEditor);
 
   return {
     dispose() {
@@ -249,13 +254,20 @@ class RoundedEditor extends CustomEditor {
     const text = this.getText();
     const isBashMode = text.trim().startsWith("!");
 
-    const border = isBashMode
-      ? this.ctx.ui.theme.getBashModeBorderColor()
-      : getConfig().roundedEditorColorizeThinking
-        ? this.ctx.ui.theme.getThinkingBorderColor(
-            this.pi.getThinkingLevel() ?? "off",
-          )
-        : this.ctx.ui.theme.getThinkingBorderColor("medium");
+    let border: BorderFn;
+    if (isBashMode) {
+      border = this.ctx.ui.theme.getBashModeBorderColor();
+    } else {
+      const color = getConfig().roundedEditorColor;
+      if (color === "thinking") {
+        border = this.ctx.ui.theme.getThinkingBorderColor(
+          this.pi.getThinkingLevel() ?? "off",
+        );
+      } else {
+        const theme = this.ctx.ui.theme;
+        border = (s: string) => theme.fg(color, s);
+      }
+    }
 
     // Top line
     lines[0] = this.buildTopLine(width, cwd, border);
