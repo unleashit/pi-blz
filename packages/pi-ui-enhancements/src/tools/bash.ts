@@ -26,6 +26,7 @@ import {
   invalidateIfChanged,
   normalizeOutput,
   registerToolTimer,
+  sanitizeDisplayText,
   unregisterToolTimer,
   updateResultState,
 } from "./tool-rendering";
@@ -429,7 +430,9 @@ export function patchBashTool(pi: ExtensionAPI): Handle {
 
       let content = prefix;
       const command =
-        typeof renderArgs.command === "string" ? renderArgs.command : "...";
+        typeof renderArgs.command === "string"
+          ? sanitizeDisplayText(renderArgs.command)
+          : "...";
       const commandPreview = toolCtx.expanded
         ? command
         : command.replace(/\s+/g, " ").trim();

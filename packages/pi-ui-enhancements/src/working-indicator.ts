@@ -162,7 +162,8 @@ export function registerWorkingIndicator(
       stopIndicator();
 
       if (startedAt > 0 && getConfig().workingIndicatorShowDuration) {
-        const lastAssistant = [...event.messages]
+        const messages = Array.isArray(event.messages) ? event.messages : [];
+        const lastAssistant = [...messages]
           .reverse()
           .find((m) => m.role === "assistant");
         if (lastAssistant?.stopReason === "stop") {

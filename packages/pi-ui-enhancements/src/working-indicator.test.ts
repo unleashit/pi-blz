@@ -75,4 +75,15 @@ describe("registerWorkingIndicator", () => {
     expect(getNotifyCount()).toBe(1);
     handle.dispose();
   });
+
+  it("handles missing agent_end messages defensively", () => {
+    const { pi, ctx, handlers, getNotifyCount } = mkIndicatorHarness();
+    const handle = registerWorkingIndicator(pi, ctx);
+
+    handlers.agent_start![0]!();
+    expect(() => handlers.agent_end![0]!({})).not.toThrow();
+
+    expect(getNotifyCount()).toBe(0);
+    handle.dispose();
+  });
 });

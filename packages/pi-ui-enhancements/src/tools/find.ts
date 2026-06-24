@@ -18,6 +18,7 @@ import {
   formatListResult,
   getCallRenderParts,
   renderPath,
+  sanitizeDisplayText,
 } from "./tool-rendering";
 
 const FIND_CONFIG: ListResultConfig = {
@@ -73,7 +74,9 @@ export function patchFindTool(pi: ExtensionAPI): Handle {
       }
 
       const rawPattern =
-        typeof renderArgs.pattern === "string" ? renderArgs.pattern : "...";
+        typeof renderArgs.pattern === "string"
+          ? sanitizeDisplayText(renderArgs.pattern)
+          : "...";
       const patternDisplay =
         visibleWidth(rawPattern) > patternBudget
           ? truncateToWidth(rawPattern, patternBudget, "...")

@@ -28,6 +28,7 @@ import {
   invalidateIfChanged,
   normalizeOutput,
   safeTruncateToWidth,
+  sanitizeDisplayText,
   updateResultState,
 } from "./tool-rendering";
 
@@ -98,7 +99,9 @@ function buildGenericCallHeader(
     if (value == null) continue;
     if (typeof value === "string" && value.length > 80) continue;
     if (typeof value === "object") continue;
-    parts.push(`${key}=${JSON.stringify(value)}`);
+    parts.push(
+      `${sanitizeDisplayText(key)}=${sanitizeDisplayText(JSON.stringify(value))}`,
+    );
   }
 
   const preview = parts.slice(0, 3).join(" ");
@@ -342,11 +345,13 @@ function wrapDefinition<T extends ToolDefinition>(definition: T): T {
           });
           state.callComponent = inner;
 
-          const innerText = inner
-            .render(MAX_CALL_WIDTH())
-            .map((line) => line.trimEnd())
-            .filter((line) => line.length > 0)
-            .join(" ");
+          const innerText = sanitizeDisplayText(
+            inner
+              .render(MAX_CALL_WIDTH())
+              .map((line) => line.trimEnd())
+              .filter((line) => line.length > 0)
+              .join(" "),
+          );
           const linkedInnerText = applyArgumentHyperlinks(
             innerText,
             args,

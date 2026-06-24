@@ -18,6 +18,7 @@ import {
   normalizeOutput,
   renderPath,
   safeTruncateToWidth,
+  sanitizeDisplayText,
   updateResultState,
 } from "./tool-rendering";
 import { mkTheme } from "../test-helpers";
@@ -75,6 +76,17 @@ describe("extractTextContent", () => {
       content: [{ type: "image", text: "data" }],
     };
     expect(extractTextContent(result)).toBe("");
+  });
+});
+
+describe("sanitizeDisplayText", () => {
+  it("strips ANSI/OSC sequences and flattens whitespace", () => {
+    expect(sanitizeDisplayText("a\x1b[31mred\x1b[0m\n\ttext")).toBe(
+      "ared text",
+    );
+    expect(
+      sanitizeDisplayText("x\x1b]8;;https://e.test\x1b\\link\x1b]8;;\x1b\\y"),
+    ).toBe("xlinky");
   });
 });
 

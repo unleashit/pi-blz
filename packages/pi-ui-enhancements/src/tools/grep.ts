@@ -19,6 +19,7 @@ import {
   formatListResult,
   getCallRenderParts,
   renderPath,
+  sanitizeDisplayText,
 } from "./tool-rendering";
 
 const GREP_CONFIG: ListResultConfig = {
@@ -54,7 +55,7 @@ export function patchGrepTool(pi: ExtensionAPI): Handle {
       const renderArgs = args as GrepToolInput;
       const title = theme.fg("toolTitle", theme.bold("Grep "));
       const glob = renderArgs.glob
-        ? theme.fg("muted", ` ${renderArgs.glob}`)
+        ? theme.fg("muted", ` ${sanitizeDisplayText(renderArgs.glob)}`)
         : "";
       const context = renderArgs.context
         ? theme.fg("muted", ` ±${renderArgs.context}`)
@@ -85,7 +86,9 @@ export function patchGrepTool(pi: ExtensionAPI): Handle {
       }
 
       const rawPattern =
-        typeof renderArgs.pattern === "string" ? renderArgs.pattern : "...";
+        typeof renderArgs.pattern === "string"
+          ? sanitizeDisplayText(renderArgs.pattern)
+          : "...";
       const patternDisplay =
         visibleWidth(rawPattern) > patternBudget
           ? truncateToWidth(rawPattern, patternBudget, "...")

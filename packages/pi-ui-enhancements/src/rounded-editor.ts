@@ -78,6 +78,7 @@ export function registerRoundedEditor(
   const runtime = getRuntime(pi);
   let gitBranchProvider: (() => string | null) | null = null;
   let requestRender: (() => void) | null = null;
+  let footerOwned = false;
   const getGitBranch = (): string | null => gitBranchProvider?.() ?? null;
 
   function getCurrentUsage() {
@@ -92,6 +93,7 @@ export function registerRoundedEditor(
   // Render only extension statuses. The rounded editor already displays model,
   // context, cost, cwd, and branch info, so pi's default footer would duplicate it.
   ctx.ui.setFooter((tui, _theme, footerData) => {
+    footerOwned = true;
     requestRender = () => tui.requestRender();
     gitBranchProvider = () => footerData.getGitBranch();
     const statuses = footerData.getExtensionStatuses();
@@ -106,7 +108,10 @@ export function registerRoundedEditor(
         return ["", line];
       },
       invalidate() {},
-      dispose: disposeBranchChange,
+      dispose() {
+        footerOwned = false;
+        disposeBranchChange?.();
+      },
     };
   });
 
@@ -141,7 +146,9 @@ export function registerRoundedEditor(
       if (ctx.ui.getEditorComponent() === roundedEditorFactory) {
         ctx.ui.setEditorComponent(previousEditorFactory);
       }
-      ctx.ui.setFooter(undefined);
+      if (footerOwned) {
+        ctx.ui.setFooter(undefined);
+      }
     },
   };
 }

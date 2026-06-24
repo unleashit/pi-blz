@@ -143,7 +143,7 @@ export function renderPath(
   }
   if (typeof rawPath !== "string") return theme.fg("error", "[invalid arg]");
 
-  const displayPath = shortenPath(rawPath);
+  const displayPath = shortenPath(sanitizeDisplayText(rawPath));
   const visiblePath =
     maxWidth === undefined
       ? displayPath
@@ -278,6 +278,10 @@ function sanitizeTextOutput(value: string): string {
     })
     .join("")
     .replace(/\r/g, "");
+}
+
+export function sanitizeDisplayText(value: string): string {
+  return sanitizeTextOutput(value).replace(/[\n\t]+/g, " ");
 }
 
 export function extractTextContent(result: {
