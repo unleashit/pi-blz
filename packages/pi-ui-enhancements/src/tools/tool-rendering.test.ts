@@ -227,6 +227,44 @@ describe("tool call blink rendering", () => {
     }
   });
 
+  it("invalidates active blinkers from one shared aligned timer", () => {
+    const originalNow = Date.now;
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    const scheduled: Array<{ callback: () => void; delay: number }> = [];
+    const invalidated: string[] = [];
+
+    Date.now = () => 100;
+    globalThis.setTimeout = ((callback: () => void, delay?: number) => {
+      scheduled.push({ callback, delay: delay ?? 0 });
+      return { id: scheduled.length };
+    }) as unknown as typeof setTimeout;
+    globalThis.clearTimeout = (() => {}) as unknown as typeof clearTimeout;
+
+    try {
+      const theme = mkTheme();
+      for (const id of ["a", "b", "c"]) {
+        getCallRenderParts({}, theme, {
+          executionStarted: true,
+          isPartial: false,
+          invalidate: () => invalidated.push(id),
+        });
+      }
+
+      expect(scheduled).toHaveLength(1);
+      expect(scheduled[0].delay).toBe(400);
+
+      scheduled[0].callback();
+      expect(invalidated).toEqual(["a", "b", "c"]);
+      expect(scheduled).toHaveLength(2);
+    } finally {
+      Date.now = originalNow;
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+      clearBlinkTimers();
+    }
+  });
+
   it("keeps error and truncation colors above blink status", () => {
     expect(getStatusColor(false, { isError: true }, true)).toBe("error");
     expect(getStatusColor(false, { truncated: true }, true)).toBe("warning");

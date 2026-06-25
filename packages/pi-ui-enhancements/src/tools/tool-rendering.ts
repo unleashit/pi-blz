@@ -17,7 +17,7 @@ import {
 import { getConfig } from "../config";
 
 export type BaseRenderState = {
-  blinkTimer?: ReturnType<typeof setInterval>;
+  blinkTimer?: { invalidate: () => void };
   hasResult?: boolean;
   truncated?: boolean;
   isError?: boolean;
@@ -61,8 +61,9 @@ export function MAX_EXPANDED_ENTRIES(): number {
 }
 
 const BLINK_INTERVAL_MS = 500;
-const activeBlinkTimers = new Set<ReturnType<typeof setInterval>>();
+const activeBlinkTimers = new Set<NonNullable<BaseRenderState["blinkTimer"]>>();
 const activeToolTimers = new Set<ReturnType<typeof setInterval>>();
+let blinkScheduler: ReturnType<typeof setTimeout> | undefined;
 
 export function isBlinkOn(): boolean {
   return Math.floor(Date.now() / BLINK_INTERVAL_MS) % 2 === 0;
@@ -155,21 +156,45 @@ export function renderPath(
   return hyperlink(styled, pathToFileURL(absolutePath).href);
 }
 
+function msUntilNextBlinkBoundary(now = Date.now()): number {
+  const elapsed = now % BLINK_INTERVAL_MS;
+  return elapsed === 0 ? BLINK_INTERVAL_MS : BLINK_INTERVAL_MS - elapsed;
+}
+
+function scheduleBlinkTick(): void {
+  if (blinkScheduler || activeBlinkTimers.size === 0) return;
+
+  blinkScheduler = setTimeout(() => {
+    blinkScheduler = undefined;
+
+    for (const timer of [...activeBlinkTimers]) {
+      timer.invalidate();
+    }
+
+    scheduleBlinkTick();
+  }, msUntilNextBlinkBoundary());
+}
+
 export function updateBlinkTimer(
   state: BaseRenderState,
   shouldBlink: boolean,
   invalidate: () => void,
 ): void {
   if (shouldBlink && !state.blinkTimer) {
-    state.blinkTimer = setInterval(invalidate, BLINK_INTERVAL_MS);
+    state.blinkTimer = { invalidate };
     activeBlinkTimers.add(state.blinkTimer);
+    scheduleBlinkTick();
     return;
   }
 
   if (!shouldBlink && state.blinkTimer) {
-    clearInterval(state.blinkTimer);
     activeBlinkTimers.delete(state.blinkTimer);
     state.blinkTimer = undefined;
+
+    if (activeBlinkTimers.size === 0 && blinkScheduler) {
+      clearTimeout(blinkScheduler);
+      blinkScheduler = undefined;
+    }
   }
 }
 
@@ -184,8 +209,9 @@ export function unregisterToolTimer(
 }
 
 export function clearBlinkTimers(): void {
-  for (const timer of activeBlinkTimers) {
-    clearInterval(timer);
+  if (blinkScheduler) {
+    clearTimeout(blinkScheduler);
+    blinkScheduler = undefined;
   }
   activeBlinkTimers.clear();
 
@@ -412,11 +438,11 @@ export function getCallRenderParts(
   const isDone =
     state.hasResult || (!toolCtx.executionStarted && !toolCtx.isPartial);
 
-  updateBlinkTimer(state, !isDone, toolCtx.invalidate);
-
   // Capture blink phase once so renderCall and renderResult stay in sync
   const blinkOn = isBlinkOn();
   state.blinkOn = blinkOn;
+
+  updateBlinkTimer(state, !isDone, toolCtx.invalidate);
 
   const prefix = theme.fg(
     getStatusColor(isDone, state, blinkOn),
