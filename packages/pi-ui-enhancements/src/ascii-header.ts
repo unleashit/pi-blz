@@ -36,6 +36,27 @@ export interface AsciiHeaderData {
   versionWidth: number;
 }
 
+const PI_FONTS: Record<string, string[]> = {
+  "pi-small": ["█▀█ ", "█▀ █"],
+  "pi-medium": [
+    "██████",
+    "██  ██",
+    "████  ██",
+    "██    ██",
+  ],
+  "pi-big": [
+    "███████████████╗",
+    "███████████████║",
+    "█████╔════█████║",
+    "█████║    █████║",
+    "██████████╔════█████╗",
+    "██████████║    █████║",
+    "█████╔════╝    █████║",
+    "█████║         █████║",
+    "╚════╝         ╚════╝",
+  ],
+};
+
 function stripEmptyEdgeLines(lines: string[]): string[] {
   let start = 0;
   let end = lines.length;
@@ -56,18 +77,10 @@ export function buildAsciiHeaderData(
 ): AsciiHeaderData {
   let rawLines: string[];
   let rawLineWidths: number[];
-  if (config.font === "pi") {
-    rawLines = [
-      "███████████████╗",
-      "███████████████║",
-      "█████╔════█████║",
-      "█████║    █████║",
-      "██████████╔════█████╗",
-      "██████████║    █████║",
-      "█████╔════╝    █████║",
-      "█████║         █████║",
-      "╚════╝         ╚════╝",
-    ];
+
+  const piFont = PI_FONTS[config.font];
+  if (piFont) {
+    rawLines = piFont;
     const maxWidth = Math.max(...rawLines.map((l) => visibleWidth(l)));
     rawLineWidths = rawLines.map(() => maxWidth);
   } else {
@@ -80,6 +93,7 @@ export function buildAsciiHeaderData(
     }
     rawLineWidths = rawLines.map((line) => visibleWidth(line));
   }
+
   return {
     rawLines,
     rawLineWidths,

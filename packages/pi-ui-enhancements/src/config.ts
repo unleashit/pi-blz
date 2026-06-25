@@ -31,7 +31,9 @@ export const ALLOWED_FONTS = [
   "Italic",
   "Jazmine",
   "Larry 3D",
-  "pi",
+  "pi-big",
+  "pi-medium",
+  "pi-small",
   "Poison",
   "Rebel",
   "Slant",
@@ -68,7 +70,7 @@ export interface Config {
 
 const defaultConfig: Config = {
   asciiHeaderEnabled: true,
-  asciiHeaderFont: "pi",
+  asciiHeaderFont: "pi-medium",
   asciiHeaderColor: "text",
   asciiHeaderAlign: "center",
   asciiHeaderShowVersion: true,
