@@ -56,6 +56,7 @@ export interface Config {
   // Tool rendering
   patchedBuiltInTools: "essential" | "all";
   patchCustomTools: boolean;
+  capitalizeToolNames: boolean;
   maxCallWidth: number;
   maxExpandedEntries: number;
 
@@ -77,6 +78,7 @@ const defaultConfig: Config = {
   workingIndicatorShowDuration: true,
   patchedBuiltInTools: "essential",
   patchCustomTools: true,
+  capitalizeToolNames: true,
   maxCallWidth: 80,
   maxExpandedEntries: 20,
   roundedEditorColor: "thinking",
@@ -108,6 +110,7 @@ const ConfigSchema = Type.Object(
       Type.Literal("all"),
     ]),
     patchCustomTools: Type.Boolean(),
+    capitalizeToolNames: Type.Boolean(),
     maxCallWidth: Type.Number({ minimum: 40, maximum: 200 }),
     maxExpandedEntries: Type.Number({ minimum: -1, maximum: 100 }),
     roundedEditorColor: Type.Union([
@@ -239,6 +242,8 @@ function parseConfigValue(id: ConfigKey, value: string): Config[ConfigKey] {
     case "patchedBuiltInTools":
       return value as Config["patchedBuiltInTools"];
     case "patchCustomTools":
+      return value === "true";
+    case "capitalizeToolNames":
       return value === "true";
     case "maxCallWidth":
       return Number(value);

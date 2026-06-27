@@ -13,6 +13,7 @@ import {
   hyperlink,
   type Component,
 } from "@earendil-works/pi-tui";
+import { getConfig } from "../config";
 import type { Handle } from "../types";
 import {
   type BaseRenderState,
@@ -121,7 +122,7 @@ function sanitizeRenderedText(value: string): string {
         continue;
       }
 
-      index += 2;
+      index++;
       continue;
     }
 
@@ -137,6 +138,47 @@ function sanitizeRenderedText(value: string): string {
   }
 
   return output.replace(/\r/g, "").replace(/[\n\t]+/g, " ");
+}
+
+function getEscapeSequenceEnd(text: string, start: number): number {
+  const next = text[start + 1];
+
+  if (next === "[") {
+    for (let i = start + 2; i < text.length; i++) {
+      if (/[\x40-\x7E]/.test(text[i]!)) return i;
+    }
+    return start;
+  }
+
+  if (next === "]" || next === "_") {
+    const belEnd = text.indexOf("\u0007", start + 2);
+    const stEnd = text.indexOf("\u001B\\", start + 2);
+    if (belEnd === -1 && stEnd === -1) return start;
+    if (belEnd !== -1 && (stEnd === -1 || belEnd < stEnd)) return belEnd;
+    return stEnd + 1;
+  }
+
+  return start;
+}
+
+function capitalizeFirstVisibleChar(text: string): string {
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]!;
+
+    if (char === "\u001B") {
+      i = getEscapeSequenceEnd(text, i);
+      continue;
+    }
+
+    if (/\s/.test(char)) continue;
+
+    const upper = char.toUpperCase();
+    if (upper !== char) {
+      return text.slice(0, i) + upper + text.slice(i + char.length);
+    }
+    break;
+  }
+  return text;
 }
 
 function buildGenericCallHeader(
@@ -387,6 +429,7 @@ function wrapDefinition<T extends ToolDefinition>(definition: T): T {
     renderCall(args, theme, toolCtx) {
       const state = getCustomState(toolCtx.state);
       const { text, prefix } = getCallRenderParts(state, theme, toolCtx);
+      const cfg = getConfig();
 
       if (originalRenderCall) {
         try {
@@ -396,13 +439,16 @@ function wrapDefinition<T extends ToolDefinition>(definition: T): T {
           });
           state.callComponent = inner;
 
-          const innerText = sanitizeRenderedText(
-            inner
-              .render(MAX_CALL_WIDTH())
-              .map((line) => line.trimEnd())
-              .filter((line) => line.length > 0)
-              .join(" "),
-          );
+          const renderedLines = inner
+            .render(MAX_CALL_WIDTH())
+            .map((line) => line.trimEnd())
+            .filter((line) => line.length > 0);
+          const rawText = renderedLines.join(" ");
+
+          let innerText = sanitizeRenderedText(rawText);
+          if (cfg.capitalizeToolNames) {
+            innerText = capitalizeFirstVisibleChar(innerText);
+          }
           const linkedInnerText = applyArgumentHyperlinks(
             innerText,
             args,
@@ -421,12 +467,16 @@ function wrapDefinition<T extends ToolDefinition>(definition: T): T {
         }
       }
 
+      const label =
+        cfg.capitalizeToolNames && definition.label
+          ? capitalizeFirstVisibleChar(definition.label)
+          : definition.label;
       text.setText(
         safeTruncateToWidth(
           prefix +
             buildGenericCallHeader(
               args as Record<string, unknown>,
-              definition.label,
+              label,
               theme,
             ),
           MAX_CALL_WIDTH(),

@@ -118,6 +118,13 @@ function getToolRenderingSettings(config: Config): SettingItem[] {
       values: ["false", "true"],
     },
     {
+      id: "capitalizeToolNames",
+      label: "Capitalize tool names",
+      description: "Capitalize first letter of custom tool names (e.g. mcp → Mcp)",
+      currentValue: String(config.capitalizeToolNames),
+      values: ["false", "true"],
+    },
+    {
       id: "maxCallWidth",
       label: "Max call width",
       description: "Maximum width for tool call and output lines",

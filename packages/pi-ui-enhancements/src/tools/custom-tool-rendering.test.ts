@@ -3,6 +3,7 @@ import { ExtensionRunner } from "@earendil-works/pi-coding-agent";
 import type { Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { patchCustomToolRendering } from "./custom-tool-rendering";
+import { saveConfig, getConfig } from "../config";
 import {
   cleanRunnerProto,
   mkTheme,
@@ -248,5 +249,137 @@ describe("patchCustomToolRendering", () => {
     ) as Array<{ definition: ToolDefinition }>;
 
     expect(tools[0]!.definition.renderShell).toBeUndefined();
+  });
+
+  it("capitalizes first character of original renderCall output when enabled", () => {
+    saveConfig("capitalizeToolNames", "true");
+    expect(getConfig().capitalizeToolNames).toBe(true);
+
+    const tool = mkRegisteredTool("myTool");
+    tool.definition.label = "My Tool";
+    tool.definition.renderCall = (_args, theme) =>
+      new Text(theme.fg("toolTitle", "search") + " latest news", 0, 0);
+    proto.getAllRegisteredTools = function () {
+      return [tool];
+    };
+
+    const handle = patchCustomToolRendering();
+    const tools = (proto.getAllRegisteredTools as Function).call(
+      {} as any,
+    ) as Array<{ definition: ToolDefinition }>;
+
+    const component = tools[0]!.definition.renderCall!(
+      { query: "latest news" },
+      mkTheme(),
+      mkToolCtx(),
+    );
+    const rendered = component.render(80).join(" ");
+
+    // First visible character should be capitalized
+    expect(rendered).toContain("Search");
+    expect(rendered).not.toContain("search");
+
+    handle.dispose();
+    saveConfig("capitalizeToolNames", "false");
+  });
+
+  it("capitalizes with ANSI-styled original renderCall output", () => {
+    saveConfig("capitalizeToolNames", "true");
+
+    const tool = mkRegisteredTool("myTool");
+    tool.definition.label = "Web Search";
+    tool.definition.renderCall = (_args, theme) =>
+      new Text(
+        theme.fg("toolTitle", "search") + " " + theme.fg("accent", "latest news"),
+        0,
+        0,
+      );
+    proto.getAllRegisteredTools = function () {
+      return [tool];
+    };
+
+    const theme = {
+      ...mkTheme(),
+      fg: (color: string, text: string) =>
+        color === "toolTitle"
+          ? `\x1b[35m${text}\x1b[39m`
+          : color === "accent"
+            ? `\x1b[36m${text}\x1b[39m`
+            : text,
+    } as Theme;
+
+    const handle = patchCustomToolRendering();
+    const tools = (proto.getAllRegisteredTools as Function).call(
+      {} as any,
+    ) as Array<{ definition: ToolDefinition }>;
+
+    const component = tools[0]!.definition.renderCall!(
+      { query: "latest news" },
+      theme,
+      mkToolCtx(),
+    );
+    const rendered = component.render(80).join(" ");
+
+    // Should capitalize first visible char and preserve ANSI codes
+    expect(rendered).toContain("Search");
+    expect(rendered).not.toContain("search");
+
+    handle.dispose();
+    saveConfig("capitalizeToolNames", "false");
+  });
+
+  it("skips non-SGR and malformed escape sequences when capitalizing", () => {
+    saveConfig("capitalizeToolNames", "true");
+
+    const tool = mkRegisteredTool("myTool");
+    tool.definition.renderCall = () => new Text("\x1b[?25l\x1bsearch", 0, 0);
+    proto.getAllRegisteredTools = function () {
+      return [tool];
+    };
+
+    const handle = patchCustomToolRendering();
+    const tools = (proto.getAllRegisteredTools as Function).call(
+      {} as any,
+    ) as Array<{ definition: ToolDefinition }>;
+
+    const component = tools[0]!.definition.renderCall!(
+      {},
+      mkTheme(),
+      mkToolCtx(),
+    );
+    const rendered = component.render(80).join(" ");
+
+    expect(rendered).toContain("Search");
+
+    handle.dispose();
+    saveConfig("capitalizeToolNames", "false");
+  });
+
+  it("does not capitalize when config is disabled", () => {
+    saveConfig("capitalizeToolNames", "false");
+
+    const tool = mkRegisteredTool("myTool");
+    tool.definition.renderCall = (_args, theme) =>
+      new Text(theme.fg("toolTitle", "search") + " latest news", 0, 0);
+    proto.getAllRegisteredTools = function () {
+      return [tool];
+    };
+
+    const handle = patchCustomToolRendering();
+    const tools = (proto.getAllRegisteredTools as Function).call(
+      {} as any,
+    ) as Array<{ definition: ToolDefinition }>;
+
+    const component = tools[0]!.definition.renderCall!(
+      { query: "latest news" },
+      mkTheme(),
+      mkToolCtx(),
+    );
+    const rendered = component.render(80).join(" ");
+
+    expect(rendered).toContain("search");
+    expect(rendered).not.toContain("Search");
+
+    handle.dispose();
   });
 });
