@@ -1,7 +1,7 @@
 {
   "name": "@blazer2k/pi-ui-enhancements",
-  "version": "0.0.1",
-  "description": "",
+  "version": "0.1.0",
+  "description": "Visual polish and compact tool rendering for pi.",
   "type": "module",
   "keywords": [
     "pi",
@@ -23,6 +23,7 @@
   },
   "files": [
     "src",
+    "images",
     "README.md",
     "LICENSE"
   ],
@@ -38,6 +39,7 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/blazer2k/pi-blz/main/packages/pi-ui-enhancements/images/example.webp"
   }
 }
