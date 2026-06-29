@@ -11,18 +11,7 @@ export interface SearchOptions {
   signal?: AbortSignal;
 }
 
-const VALID_CATEGORIES = new Set([
-  "general",
-  "images",
-  "videos",
-  "news",
-  "map",
-  "music",
-  "it",
-  "science",
-  "files",
-  "social media",
-]);
+const VALID_CATEGORIES = new Set(["general", "news", "science", "videos"]);
 
 export interface SearchResult {
   title: string;

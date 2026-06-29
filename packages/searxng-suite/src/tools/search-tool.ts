@@ -45,10 +45,18 @@ export function registerSearchTool(pi: ExtensionAPI) {
       ...(config.llmCanPickCategory
         ? {
             category: Type.Optional(
-              Type.String({
-                description:
-                  "Search category (pick one): general, images, videos, news, it, science, files, social media",
-              }),
+              Type.Union(
+                [
+                  Type.Literal("general"),
+                  Type.Literal("news"),
+                  Type.Literal("science"),
+                  Type.Literal("videos"),
+                ],
+                {
+                  description:
+                    "Search category (pick one): general, news, science, videos",
+                },
+              ),
             ),
           }
         : {}),
