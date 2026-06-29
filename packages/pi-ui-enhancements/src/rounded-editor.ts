@@ -81,11 +81,14 @@ export function registerRoundedEditor(
   let footerOwned = false;
   const getGitBranch = (): string | null => gitBranchProvider?.() ?? null;
 
+  let cachedUsage = getTotalUsage(ctx);
+
   function getCurrentUsage() {
-    return getTotalUsage(ctx);
+    return cachedUsage;
   }
 
   const invalidateUsage = () => {
+    cachedUsage = getTotalUsage(ctx);
     requestRender?.();
   };
   runtime.invalidateUsage = invalidateUsage;

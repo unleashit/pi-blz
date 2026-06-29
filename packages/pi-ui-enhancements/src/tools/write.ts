@@ -14,7 +14,9 @@ import {
   extractTextContent,
   formatSimpleErrorResult,
   formatTreeLine,
+  getCachedFormat,
   getCallRenderParts,
+  getFormatCacheKey,
   getResultSymbolColor,
   getResultText,
   invalidateIfChanged,
@@ -154,14 +156,16 @@ export function patchWriteTool(pi: ExtensionAPI): Handle {
       invalidateIfChanged(changed, toolCtx.invalidate);
 
       const writeArgs = toolCtx.args as WriteToolInput;
-      const resultText = formatWriteResult(
-        result,
-        state,
-        options,
-        theme,
-        writeArgs,
+      const key = [
+        getFormatCacheKey(options),
+        toolCtx.isError ? "error" : "ok",
+        state.truncated ? "truncated" : "full",
+      ].join(":");
+      text.setText(
+        getCachedFormat(state, key, { result, args: writeArgs, theme }, () =>
+          formatWriteResult(result, state, options, theme, writeArgs),
+        ),
       );
-      text.setText(resultText);
 
       return text;
     },

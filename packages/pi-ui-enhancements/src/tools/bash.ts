@@ -20,7 +20,9 @@ import {
   extractTextContent,
   formatErrorBody,
   formatTreeLine,
+  getCachedFormat,
   getCallRenderParts,
+  getFormatCacheKey,
   getResultSymbolColor,
   getResultText,
   invalidateIfChanged,
@@ -500,7 +502,21 @@ export function patchBashTool(pi: ExtensionAPI): Handle {
       });
 
       invalidateIfChanged(changed, toolCtx.invalidate);
-      text.setText(formatBashResult(result, state, options, theme));
+
+      if (options.isPartial) {
+        text.setText(formatBashResult(result, state, options, theme));
+      } else {
+        const key = [
+          getFormatCacheKey(options),
+          toolCtx.isError ? "error" : "ok",
+          state.truncated ? "truncated" : "full",
+        ].join(":");
+        text.setText(
+          getCachedFormat(state, key, { result, theme }, () =>
+            formatBashResult(result, state, options, theme),
+          ),
+        );
+      }
 
       return text;
     },

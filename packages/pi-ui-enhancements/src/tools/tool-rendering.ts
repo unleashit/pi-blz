@@ -22,6 +22,13 @@ export type BaseRenderState = {
   truncated?: boolean;
   isError?: boolean;
   expanded?: boolean;
+  formatCache?: {
+    key: string;
+    result?: unknown;
+    args?: unknown;
+    theme?: unknown;
+    value: string;
+  };
   /** Captured blink phase shared between renderCall and renderResult */
   blinkOn?: boolean;
 };
@@ -468,6 +475,43 @@ export function getResultText(
   return text;
 }
 
+export function getFormatCacheKey(options: ToolRenderResultOptions): string {
+  return [
+    options.expanded ? "expanded" : "collapsed",
+    options.isPartial ? "partial" : "done",
+    MAX_CALL_WIDTH(),
+    MAX_EXPANDED_ENTRIES(),
+  ].join(":");
+}
+
+export function getCachedFormat(
+  state: BaseRenderState,
+  key: string,
+  refs: { result?: unknown; args?: unknown; theme?: unknown },
+  format: () => string,
+): string {
+  const cache = state.formatCache;
+  if (
+    cache &&
+    cache.key === key &&
+    cache.result === refs.result &&
+    cache.args === refs.args &&
+    cache.theme === refs.theme
+  ) {
+    return cache.value;
+  }
+
+  const value = format();
+  state.formatCache = {
+    key,
+    result: refs.result,
+    args: refs.args,
+    theme: refs.theme,
+    value,
+  };
+  return value;
+}
+
 export function updateResultState(
   state: BaseRenderState,
   next: {
@@ -611,7 +655,20 @@ export function buildRenderResult(
     });
 
     invalidateIfChanged(changed, toolCtx.invalidate);
-    text.setText(formatFn(result, state, options, theme));
+    const key = [
+      getFormatCacheKey(options),
+      toolCtx.isError ? "error" : "ok",
+      state.truncated ? "truncated" : "full",
+    ].join(":");
+    if (options.isPartial) {
+      text.setText(formatFn(result, state, options, theme));
+    } else {
+      text.setText(
+        getCachedFormat(state, key, { result, theme }, () =>
+          formatFn(result, state, options, theme),
+        ),
+      );
+    }
     return text;
   };
 }
