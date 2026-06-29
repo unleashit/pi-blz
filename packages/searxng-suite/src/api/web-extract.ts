@@ -26,6 +26,17 @@ const headers: Record<string, string> = {
   "Upgrade-Insecure-Requests": "1",
 };
 
+function adaptRedditUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname === "www.reddit.com" || u.hostname === "reddit.com") {
+      u.hostname = "old.reddit.com";
+      return u.toString();
+    }
+  } catch {}
+  return url;
+}
+
 export async function webExtract(
   url: string,
   options: ExtractOptions,
@@ -36,10 +47,12 @@ export async function webExtract(
     throw new Error(`Invalid URL: ${url}`);
   }
 
+  const fetchUrl = adaptRedditUrl(validatedUrl);
+
   const timeout = createTimeoutSignal(options.timeoutMs, options.signal);
 
   try {
-    const res = await fetch(validatedUrl, { signal: timeout.signal, headers });
+    const res = await fetch(fetchUrl, { signal: timeout.signal, headers });
 
     if (!res.ok) {
       throw new Error(`Fetch returned ${res.status} ${res.statusText}`);
