@@ -8,7 +8,7 @@ import {
   formatBytes,
   truncateContent,
 } from "./shared";
-import { absolutizeUrls } from "../helpers/url";
+import { extractContent } from "./content-extractor";
 
 const turndown = new TurndownService({
   headingStyle: "atx",
@@ -16,25 +16,6 @@ const turndown = new TurndownService({
   bulletListMarker: "-",
   codeBlockStyle: "fenced",
 });
-
-export function denoiseBody(body: Element) {
-  [
-    ...body.querySelectorAll(
-      `
-    nav, header, footer,
-    [role="navigation"], [role="banner"], [role="contentinfo"],
-    .breadcrumb, .breadcrumbs,
-    .webring, .related-posts, .post-navigation,
-    .sidebar, .aside,
-    .cookie-banner, .cookie-notice,
-    .share-buttons, .social-share,
-    .comments, #comments,
-    .newsletter, .subscribe,
-    script, style, noscript, svg, iframe, link, meta
-  `,
-    ),
-  ].forEach((el) => el.remove());
-}
 
 export function buildMetaString(document: Document): string {
   const meta = (name: string): string =>
@@ -90,11 +71,9 @@ export async function extractHtml(
 
   if (!body) throw new Error("Fetch returned empty body");
 
-  denoiseBody(body);
-  absolutizeUrls(body, sourceUrl);
-
+  const html = extractContent(document, sourceUrl);
   const metaString = buildMetaString(document);
-  const markdown = getMarkdownFromHTML(body.innerHTML ?? "");
+  const markdown = getMarkdownFromHTML(html);
 
   const content = [
     `Source URL: ${sourceUrl}`,
