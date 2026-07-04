@@ -2,13 +2,13 @@
 
 SearxNG-based web search with category filtering and multi-format URL extraction for [pi](https://pi.dev).
 
-**Current version:** 0.2.3 · [Changelog](CHANGELOG.md)
+**Current version:** 0.2.4 · [Changelog](CHANGELOG.md)
 
 ## Overview
 
 This extension provides two LLM-callable tools:
 
-- **`web_search`:** Search the web via your SearxNG instance with configurable result limits, timeouts, and SafeSearch.
+- **`web_search`:** Search the web via your SearxNG instance with configurable result limits, timeouts, SafeSearch, and optional rich metadata (direct image URLs, thumbnails, resolution, etc.).
 - **`web_extract`:** Extract content from any URL, supporting multiple formats:
 
 | Format     | Output                                                                              |
@@ -87,6 +87,36 @@ When **LLM can pick category** is enabled, the LLM can target searches to specif
 | `social media` | Social media posts                     |
 
 The LLM receives the category list in the tool description and picks the best match for each query.
+
+## Rich Metadata (`includeMetadata`)
+
+By default, `web_search` returns the standard fields: `title`, `url`, `content`, and `engine`.  When you pass **`includeMetadata: true`**, each result also includes any available SearxNG metadata fields:
+
+| Field             | Description                                    | Typical in       |
+| ----------------- | ---------------------------------------------- | ---------------- |
+| `img_src`         | Direct URL to the full-size image file         | `images` search  |
+| `thumbnail_src`   | URL to a small preview thumbnail               | `images` search  |
+| `resolution`      | Image dimensions (e.g. `1920 x 1329`)          | `images` search  |
+| `img_format`      | MIME type (e.g. `image/jpeg`)                  | `images` search  |
+| `filesize`        | File size (e.g. `5.74 MB`)                     | `images` search  |
+| `source`          | Originating site and file size                 | various engines  |
+| `author`          | Photographer or content author                 | Flickr, etc.     |
+
+This is especially useful for **image searches** where you need the direct image URL (`img_src`) rather than the HTML source page (`url`).
+
+```text
+web_search({ query: "ducks", category: "images", includeMetadata: true })
+```
+
+Example output with metadata:
+
+```
+## **1.** mallard ducks feel in love!!
+**URL:** https://www.flickr.com/photos/55514420@N00/4433930955
+**Image URL:** https://live.staticflickr.com/2785/4433930955_f0de8a0cd1.jpg
+**Resolution:** 500 x 375
+**Source:** User @ Flickr
+```
 
 ## Security
 

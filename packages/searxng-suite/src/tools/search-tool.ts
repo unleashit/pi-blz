@@ -48,18 +48,28 @@ export function registerSearchTool(pi: ExtensionAPI) {
               Type.Union(
                 [
                   Type.Literal("general"),
-                  Type.Literal("news"),
-                  Type.Literal("science"),
+                  Type.Literal("images"),
                   Type.Literal("videos"),
+                  Type.Literal("news"),
+                  Type.Literal("it"),
+                  Type.Literal("science"),
+                  Type.Literal("files"),
+                  Type.Literal("social media"),
                 ],
                 {
                   description:
-                    "Search category (pick one): general, news, science, videos",
+                    "Search category (pick one): general, images, videos, news, it, science, files, social media",
                 },
               ),
             ),
           }
         : {}),
+      includeMetadata: Type.Optional(
+        Type.Boolean({
+          description:
+            "When true, include extra metadata in results such as direct image URLs (img_src), thumbnails, resolution, format, filesize, source, and author. Useful for image searches. Defaults to false.",
+        }),
+      ),
     }),
 
     async execute(
@@ -94,6 +104,7 @@ export function registerSearchTool(pi: ExtensionAPI) {
           timeoutMs: config.timeoutMs,
           safesearch: config.safesearch,
           signal,
+          includeMetadata: params.includeMetadata ?? false,
         });
 
         return {

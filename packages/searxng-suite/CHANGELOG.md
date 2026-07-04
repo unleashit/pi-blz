@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- **`includeMetadata` parameter** on `web_search` — when `true`, results include extra SearxNG metadata fields: `img_src` (direct image URL), `thumbnail_src`, `resolution`, `img_format`, `filesize`, `source`, and `author`. Especially useful for `images` category searches where you need the actual image file URL rather than the HTML source page.
+- **All SearxNG categories** now available in the tool schema (`images`, `it`, `files`, `social media` added alongside existing `general`, `news`, `science`, `videos`)
+
 ### Fixed
 
 - Guard against `null`/`undefined` `query` in `buildToolCallText` — prevents rendering the literal string `"undefined"` in tool call text
